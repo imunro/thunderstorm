@@ -1,5 +1,8 @@
 package cz.cuni.lf1.lge.ThunderSTORM;
 
+import Glacier2.CannotCreateSessionException;
+import Glacier2.PermissionDeniedException;
+import OMEuiUtils.OMEROImageChooser;
 import cz.cuni.lf1.lge.ThunderSTORM.ImportExport.IImportExport;
 import cz.cuni.lf1.lge.ThunderSTORM.results.IJResultsTable;
 import cz.cuni.lf1.lge.ThunderSTORM.UI.GUI;
@@ -29,16 +32,30 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import javax.swing.*;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
+import java.util.ArrayList;
+import java.util.Map;
+import omero.ServerError;
+import omero.api.IMetadataPrx;
+import omero.api.ServiceFactoryPrx;
+import omero.client;
+import omero.model.Dataset;
+import omero.model.FileAnnotation;
+import omero.model.IObject;
+import omero.sys.ParametersI;
+
 
 public class ImportExportPlugIn implements PlugIn {
 
     public static final String IMPORT = "import";
     public static final String EXPORT = "export";
+    public static final String OMERO = "OMERO";
     private List<IImportExport> modules = null;
     private String[] moduleNames = null;
     private String[] moduleExtensions = null;
@@ -79,15 +96,86 @@ public class ImportExportPlugIn implements PlugIn {
             }
 
             setupModules();
-
-            if(EXPORT.equals(commands[0])) {
-                runExport(table, groundTruth);
-            } else if(IMPORT.equals(commands[0])) {
-                runImport(table, groundTruth);
+            
+           if (OMERO.equals(commands[1]))  {
+             OMEROImport();
+           } else {
+            if (EXPORT.equals(commands[0])) {
+              runExport(table, groundTruth);
+            } else if (IMPORT.equals(commands[0])) {
+              runImport(table, groundTruth);
             }
+          }
         } catch(Exception ex) {
             IJ.handleException(ex);
         }
+    }
+    
+    private void OMEROImport() {
+      try {
+        client omeroclient = new client("demo.openmicroscopy.org", 4064);
+        ServiceFactoryPrx session = omeroclient.createSession("imunro", "???????");
+        
+        long uId = session.getAdminService().getEventContext().userId;
+        
+        if (omeroclient != null) {
+          
+          
+          int type = 1; // Dataset
+
+          OMEROImageChooser chooser = new OMEROImageChooser(omeroclient, uId, type);
+          Dataset dataset = chooser.getSelectedDataset();
+          
+          if (dataset != null)  {
+            Long objId = dataset.getId().getValue();
+            String parentType = "omero.model.Dataset";
+            ArrayList<String> annotationType = new ArrayList<>();  
+            annotationType.add("ome.model.annotations.FileAnnotation");
+            ArrayList<Long> Ids = new ArrayList<>(); 
+            Ids.add(objId);
+            
+            ParametersI param = new ParametersI();
+            param.exp(omero.rtypes.rlong(uId)); //load the annotation for a given user.
+            
+            IMetadataPrx metadataService = session.getMetadataService();
+            List<Long> annotators = null;
+             
+            Map<Long, List<IObject>> map = metadataService.loadAnnotations(parentType, Ids, annotationType, annotators, param);
+            List<IObject> annotations = map.get(objId);
+            if (0 == annotations.size())  {
+              return;
+            }
+                 
+            ArrayList<String> aNames = new ArrayList<>();
+            for (int j = 0; j < annotations.size(); j++) {
+              IObject obj = annotations.get(j);
+              //if (obj instanceof FileAnnotation) {
+                aNames.add(((FileAnnotation)obj).getFile().getName().getValue());
+              //}
+            }
+            
+            if (aNames.size() < 1)  {
+              return;
+            }
+            
+            String[] nameArray = new String[aNames.size()]; 
+            aNames.toArray(nameArray);
+        
+            String selected = (String) JOptionPane.showInputDialog(null, "Please select ...", "Please selevt an OMERO table", JOptionPane.QUESTION_MESSAGE, null, nameArray, nameArray[0]);
+         
+          }
+
+         
+
+        }
+      } catch (CannotCreateSessionException ex) {
+        Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
+      } catch (PermissionDeniedException ex) {
+        Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
+      } catch (ServerError ex) {
+        Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
+      }
+    
     }
 
     private void runImport(GenericTable table, boolean groundTruth) {
