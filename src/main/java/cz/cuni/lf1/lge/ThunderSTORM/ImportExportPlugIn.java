@@ -8,6 +8,7 @@ import cz.cuni.lf1.lge.ThunderSTORM.results.IJResultsTable;
 import cz.cuni.lf1.lge.ThunderSTORM.UI.GUI;
 import cz.cuni.lf1.lge.ThunderSTORM.UI.Help;
 import cz.cuni.lf1.lge.ThunderSTORM.UI.MacroParser;
+import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.MoleculeDescriptor;
 import cz.cuni.lf1.lge.ThunderSTORM.results.GenericTable;
 import cz.cuni.lf1.lge.ThunderSTORM.results.IJGroundTruthTable;
 import cz.cuni.lf1.lge.ThunderSTORM.results.MeasurementProtocol;
@@ -28,6 +29,8 @@ import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
+import java.awt.event.KeyAdapter;
+import java.awt.event.KeyEvent;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -45,9 +48,15 @@ import omero.ServerError;
 import omero.api.IMetadataPrx;
 import omero.api.ServiceFactoryPrx;
 import omero.client;
+import omero.grid.Column;
+import omero.grid.Data;
+import omero.grid.DoubleColumn;
+import omero.grid.LongColumn;
+import omero.grid.TablePrx;
 import omero.model.Dataset;
 import omero.model.FileAnnotation;
 import omero.model.IObject;
+import omero.model.OriginalFile;
 import omero.sys.ParametersI;
 
 
@@ -55,7 +64,14 @@ public class ImportExportPlugIn implements PlugIn {
 
     public static final String IMPORT = "import";
     public static final String EXPORT = "export";
+    
     public static final String OMERO = "OMERO";
+    public static final String LOGON = "logon";
+    public static final String LOGOFF = "logoff";
+    private ServiceFactoryPrx session = null;
+    private client omeroclient = null;
+    long uId = -1;
+   
     private List<IImportExport> modules = null;
     private String[] moduleNames = null;
     private String[] moduleExtensions = null;
@@ -98,7 +114,13 @@ public class ImportExportPlugIn implements PlugIn {
             setupModules();
             
            if (OMERO.equals(commands[1]))  {
-             OMEROImport();
+             if (IMPORT.equals(commands[0]))  {
+               OMEROImport(table);
+             }
+             if (LOGON.equals(commands[0]))  {
+               OMEROLogon();
+             }
+
            } else {
             if (EXPORT.equals(commands[0])) {
               runExport(table, groundTruth);
@@ -110,72 +132,203 @@ public class ImportExportPlugIn implements PlugIn {
             IJ.handleException(ex);
         }
     }
-    
-    private void OMEROImport() {
-      try {
-        client omeroclient = new client("demo.openmicroscopy.org", 4064);
-        ServiceFactoryPrx session = omeroclient.createSession("imunro", "???????");
-        
-        long uId = session.getAdminService().getEventContext().userId;
-        
-        if (omeroclient != null) {
-          
-          
-          int type = 1; // Dataset
 
-          OMEROImageChooser chooser = new OMEROImageChooser(omeroclient, uId, type);
-          Dataset dataset = chooser.getSelectedDataset();
+   
+    private void OMEROImport(GenericTable table) {
+      
+      if (session == null)  {
+        OMEROLogon();  
+      }
+       
+      if (session != null) {
+
+      int type = 1; // Dataset
+
+      OMEROImageChooser chooser = new OMEROImageChooser(omeroclient, uId, type);
+      Dataset dataset = chooser.getSelectedDataset();
+
+      if (dataset != null) {
+        try {
+          Long objId = dataset.getId().getValue();
+          String parentType = "omero.model.Dataset";
+          ArrayList<String> annotationType = new ArrayList<>();
+          annotationType.add("ome.model.annotations.FileAnnotation");
+          ArrayList<Long> Ids = new ArrayList<>();
+          Ids.add(objId);
           
-          if (dataset != null)  {
-            Long objId = dataset.getId().getValue();
-            String parentType = "omero.model.Dataset";
-            ArrayList<String> annotationType = new ArrayList<>();  
-            annotationType.add("ome.model.annotations.FileAnnotation");
-            ArrayList<Long> Ids = new ArrayList<>(); 
-            Ids.add(objId);
-            
-            ParametersI param = new ParametersI();
-            param.exp(omero.rtypes.rlong(uId)); //load the annotation for a given user.
-            
-            IMetadataPrx metadataService = session.getMetadataService();
-            List<Long> annotators = null;
-             
-            Map<Long, List<IObject>> map = metadataService.loadAnnotations(parentType, Ids, annotationType, annotators, param);
-            List<IObject> annotations = map.get(objId);
-            if (0 == annotations.size())  {
-              return;
-            }
-                 
-            ArrayList<String> aNames = new ArrayList<>();
+          ParametersI param = new ParametersI();
+          param.exp(omero.rtypes.rlong(uId)); //load the annotation for a given user.
+          
+          IMetadataPrx metadataService = session.getMetadataService();
+          List<Long> annotators = null;
+          
+          Map<Long, List<IObject>> map = metadataService.loadAnnotations(parentType, Ids, annotationType, annotators, param);
+          List<IObject> annotations = map.get(objId);
+          if (0 == annotations.size()) {
+            return;
+          }
+          
+          ArrayList<String> h5List = new ArrayList<>();
+            ArrayList<FileAnnotation> tableList = new ArrayList<>();
             for (int j = 0; j < annotations.size(); j++) {
               IObject obj = annotations.get(j);
-              //if (obj instanceof FileAnnotation) {
-                aNames.add(((FileAnnotation)obj).getFile().getName().getValue());
-              //}
+              if (obj instanceof FileAnnotation) {
+                String name = ((FileAnnotation) obj).getFile().getName().getValue();
+                if(name.contains(".h5"))  {
+                h5List.add(name);
+                tableList.add((FileAnnotation) obj);
+                
+                }
+              }
             }
-            
-            if (aNames.size() < 1)  {
+
+            if (h5List.size() < 1) {
+              JOptionPane.showMessageDialog (null, "No .h5 Annotations found!", "Title", JOptionPane.INFORMATION_MESSAGE);
               return;
             }
+
+            String[] nameArray = new String[h5List.size()];
+            h5List.toArray(nameArray);
+
+            String selected = (String) JOptionPane.showInputDialog(null, "Please select ...", "Please select an OMERO table", JOptionPane.QUESTION_MESSAGE, null, nameArray, nameArray[0]);
             
-            String[] nameArray = new String[aNames.size()]; 
-            aNames.toArray(nameArray);
-        
-            String selected = (String) JOptionPane.showInputDialog(null, "Please select ...", "Please selevt an OMERO table", JOptionPane.QUESTION_MESSAGE, null, nameArray, nameArray[0]);
-         
-          }
-
-         
-
-        }
-      } catch (CannotCreateSessionException ex) {
-        Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
-      } catch (PermissionDeniedException ex) {
-        Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
-      } catch (ServerError ex) {
-        Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
-      }
+            OriginalFile selectedFile = null;
+            
+            for (int s = 0; s < tableList.size(); s++)  {
+              FileAnnotation fa = tableList.get(s);
+              if (fa.getFile().getName().getValue().equals(selected))  {
+                selectedFile = fa.getFile();
+                break;
+              }
+            }
+          
+           
+           IJResultsTable ijrt = (IJResultsTable)table;
+           
+            
+           if (selectedFile !=null)  {
+             
+             // set headers in TSTORM table
+             String[] colnames =  {"id", "frame", "x","y","sigma","intensity","offse","bkgstd","uncertainty"};
+             table.setDescriptor(new MoleculeDescriptor(colnames));
+             
+             TablePrx OMEROtable;
+             OMEROtable = session.sharedResources().openTable(selectedFile);
+             
+             long[] columnsToRead = new long[9];
+             for (int i = 0; i < 8; i++) {
+               columnsToRead[i] = i;
+             }
+             
+             int nBlocks = 4;
+             
+             //load 4096 points at a time
+             int nRows = 4096;
+             
+             // The number of rows we wish to read.
+             long[] rowSubset = new long[(int) (nRows)];
+             
+             Data data; 
     
+             // TBD find out how flexible ThunderSTORM is in terms of column order 
+             // and re-write in a more flexible manner
+             LongColumn idCol;
+             LongColumn frameCol;
+             DoubleColumn xCol;
+             DoubleColumn yCol;
+             DoubleColumn intCol;
+             DoubleColumn precCol;
+             DoubleColumn bkgstdCol;
+             DoubleColumn sigmaCol;
+             DoubleColumn offsetCol;
+             
+             
+             int row = 0;
+             
+              for (int b = 0; b < nBlocks; b++) {
+                for (int j = 0; j < rowSubset.length; j++) {
+                  rowSubset[j] = row;
+                  row++;
+                }
+                
+                try {
+                  data = OMEROtable.slice(columnsToRead, rowSubset); // read the data.
+
+                } catch (ServerError ex) {
+                  Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
+                  break;
+                }
+
+                Column[] dcols = data.columns;
+                
+                // Col 0 == id OMERO col 4
+                idCol = (LongColumn) dcols[3];
+                // Col 1== frame  OMERO col 0
+                frameCol = (LongColumn) dcols[0];
+                 // Col 2 == x OMERO col 1
+                xCol = (DoubleColumn) dcols[1];
+                // Col 3 == y OMERO col 2
+                yCol = (DoubleColumn) dcols[2];
+                // Col 4 == intensity 
+                intCol = (DoubleColumn) dcols[4];
+                // precision, bkgstd, sigma , offset
+                precCol = (DoubleColumn) dcols[5];
+                bkgstdCol = (DoubleColumn) dcols[6];
+                sigmaCol = (DoubleColumn) dcols[7];
+                offsetCol = (DoubleColumn) dcols[8];
+                
+                
+                double[] rowVals = new double[4];
+                
+               
+                for (int r = 0; r < nRows; r++) {
+                   rowVals[0] = idCol.values[r];
+                   rowVals[1] = frameCol.values[r];
+                   rowVals[2] = xCol.values[r];
+                   rowVals[3] = yCol.values[r];
+                   rowVals[4] = intCol.values[r];
+                   rowVals[5] = precCol.values[r];
+                   rowVals[6] = bkgstdCol.values[r];
+                   rowVals[7] = sigmaCol.values[r];
+                   rowVals[8] = offsetCol.values[r];
+                   
+                   table.addRow(rowVals);          
+                }
+
+              }  // end nBlocks
+              
+              OMEROtable.close();
+
+             
+           }  // end if (selectedFile !=null)
+         
+          
+        } catch (ServerError ex) {
+          Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
+        }
+
+      }
+
+    }
+
+  }
+    
+    private void OMEROLogon()  {
+      LoginDialog ld = new LoginDialog();
+      ld.setSize(400, 240);
+      ld.setLocationRelativeTo(null);  // centre of screen
+      ld.setModal(true);
+      ld.setVisible(true);
+    } 
+    
+    private void OMEROLogoff()  {
+      if (omeroclient != null)  {
+        omeroclient.closeSession();
+        omeroclient = null;
+      }
+      if (session  != null)  {
+        session = null;
+      }
     }
 
     private void runImport(GenericTable table, boolean groundTruth) {
@@ -742,4 +895,162 @@ public class ImportExportPlugIn implements PlugIn {
             }
         };
     }
+    
+     //---------------OMERO----------------------
+    
+   /**
+    * OMERO Login Dialog
+   */
+   public class LoginDialog extends JDialog {
+ 
+        JLabel serverLabel = new JLabel("Server : ");
+        JLabel portLabel = new JLabel("   Port : ");
+	JLabel nameLabel = new JLabel("   Name : ");
+	JLabel passwordLabel = new JLabel("   Password : ");
+ 
+        JTextField serverField = new JTextField();
+        JTextField portField = new JTextField();
+	JTextField nameField = new JTextField();
+	JPasswordField passwordField = new JPasswordField();
+ 
+	JButton okButton = new JButton("OK");
+	JButton cancelButton = new JButton("Cancel");
+ 
+	public LoginDialog() {
+		setupUI();
+		setUpListeners();
+	}
+ 
+	public final void setupUI() {
+ 
+		this.setTitle("Login");
+                
+                serverField.setText("cell.bioinformatics.ic.ac.uk");
+                portField.setText("4064");
+                nameField.setText("imunro");
+ 
+		JPanel topPanel = new JPanel(new GridBagLayout());
+		JPanel buttonPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+ 
+		buttonPanel.add(okButton);
+		buttonPanel.add(cancelButton);
+ 
+		GridBagConstraints gbc = new GridBagConstraints();
+ 
+		gbc.insets = new Insets(4, 4, 4, 4);
+                
+                gbc.gridx = 0;
+		gbc.gridy = 1;
+		gbc.weightx = 0;
+                serverLabel.setHorizontalAlignment(SwingConstants.LEFT);
+		topPanel.add(serverLabel, gbc);
+ 
+		gbc.gridx = 1;
+		gbc.gridy = 1;
+		gbc.fill = GridBagConstraints.HORIZONTAL;
+		gbc.weightx = 1;
+		topPanel.add(serverField, gbc);
+                
+                gbc.gridx = 0;
+		gbc.gridy = 2;
+		gbc.weightx = 0;
+		topPanel.add(portLabel, gbc);
+ 
+		gbc.gridx = 1;
+		gbc.gridy = 2;
+		gbc.fill = GridBagConstraints.HORIZONTAL;
+		gbc.weightx = 1;
+		topPanel.add(portField, gbc);
+ 
+		gbc.gridx = 0;
+		gbc.gridy = 3;
+		gbc.weightx = 0;
+		topPanel.add(nameLabel, gbc);
+ 
+		gbc.gridx = 1;
+		gbc.gridy = 3;
+		gbc.fill = GridBagConstraints.HORIZONTAL;
+		gbc.weightx = 1;
+		topPanel.add(nameField, gbc);
+ 
+		gbc.gridx = 0;
+		gbc.gridy = 4;
+		gbc.fill = GridBagConstraints.NONE;
+		gbc.weightx = 0;
+		topPanel.add(passwordLabel, gbc);
+ 
+		gbc.fill = GridBagConstraints.HORIZONTAL;
+		gbc.gridx = 1;
+		gbc.gridy = 4;
+		gbc.weightx = 1;
+		topPanel.add(passwordField, gbc);
+ 
+		this.add(topPanel);
+ 
+		this.add(buttonPanel, BorderLayout.SOUTH);
+ 
+	}
+ 
+	private void setUpListeners() {
+ 
+		passwordField.addKeyListener(new KeyAdapter() {
+ 
+               @Override
+                public void keyPressed(KeyEvent e) {
+                  if (e.getKeyCode() == KeyEvent.VK_ENTER) {
+                  }
+                }
+              });
+ 
+		okButton.addActionListener(new ActionListener() {
+ 
+			@Override
+			public void actionPerformed(ActionEvent e) {
+                            login();
+                            LoginDialog.this.setVisible(false);
+			}
+		});
+ 
+		cancelButton.addActionListener(new ActionListener() {
+ 
+			@Override
+			public void actionPerformed(ActionEvent e) {
+                          LoginDialog.this.setVisible(false);
+			}
+		});
+	}
+	
+	private void login() {
+          
+          int port = Integer.valueOf(portField.getText());
+          omeroclient = new client(serverField.getText(), port);
+  
+          try {
+            session = omeroclient.createSession(nameField.getText(), new String(passwordField.getPassword()));
+          } catch (CannotCreateSessionException ex) {
+            Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
+          } catch (PermissionDeniedException ex) {
+            Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
+          } catch (ServerError ex) {
+            Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
+          }
+          
+          
+          if (session == null)  {
+            JOptionPane.showMessageDialog(null, "Logon failed!! !", "Error!", JOptionPane.INFORMATION_MESSAGE);
+            omeroclient = null;
+            return;
+          }
+
+          try {
+            uId = session.getAdminService().getEventContext().userId;
+          } catch (ServerError ex) {
+            Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
+          }
+          
+        
+    } 
+
+   }
+  
 }
