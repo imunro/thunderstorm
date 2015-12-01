@@ -44,6 +44,7 @@ import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.util.ArrayList;
 import java.util.Map;
+import java.util.Vector;
 import omero.ServerError;
 import omero.api.IMetadataPrx;
 import omero.api.ServiceFactoryPrx;
@@ -203,24 +204,47 @@ public class ImportExportPlugIn implements PlugIn {
             }
           
            
-           IJResultsTable ijrt = (IJResultsTable)table;
-           
-            
+          
+               
            if (selectedFile !=null)  {
              
+              table.reset();   // appending not yet implemented
+             table.setOriginalState();
+            
+             
              // set headers in TSTORM table
-             String[] colnames =  {"id", "frame", "x","y","sigma","intensity","offse","bkgstd","uncertainty"};
+              
+             String[] colnames = new String[8];
+            
+             colnames[0] = "frame";
+             colnames[1] =  "x";
+             colnames[2] =  "y";
+             colnames[3] = "sigma";
+             colnames[4] = "intensity";
+             colnames[5] =  "offset";
+             colnames[6] =  "bkgstd";
+             colnames[7] =  "uncertainty";
              table.setDescriptor(new MoleculeDescriptor(colnames));
+             
+             table.setColumnUnits(1, MoleculeDescriptor.Units.NANOMETER);
+             table.setColumnUnits(2, MoleculeDescriptor.Units.NANOMETER);
+             table.setColumnUnits(3, MoleculeDescriptor.Units.NANOMETER);
+             table.setColumnUnits(4, MoleculeDescriptor.Units.PHOTON);
+             table.setColumnUnits(5, MoleculeDescriptor.Units.PHOTON);
+             table.setColumnUnits(6, MoleculeDescriptor.Units.PHOTON);
+             table.setColumnUnits(7, MoleculeDescriptor.Units.NANOMETER);
              
              TablePrx OMEROtable;
              OMEROtable = session.sharedResources().openTable(selectedFile);
              
              long[] columnsToRead = new long[9];
-             for (int i = 0; i < 8; i++) {
+             
+
+             for (int i = 1; i < 9; i++) {
                columnsToRead[i] = i;
              }
              
-             int nBlocks = 4;
+             int nBlocks = 10;
              
              //load 4096 points at a time
              int nRows = 4096;
@@ -232,7 +256,7 @@ public class ImportExportPlugIn implements PlugIn {
     
              // TBD find out how flexible ThunderSTORM is in terms of column order 
              // and re-write in a more flexible manner
-             LongColumn idCol;
+           
              LongColumn frameCol;
              DoubleColumn xCol;
              DoubleColumn yCol;
@@ -243,7 +267,10 @@ public class ImportExportPlugIn implements PlugIn {
              DoubleColumn offsetCol;
              
              
+             
              int row = 0;
+             
+             ProgressMonitor pbar = new ProgressMonitor(null, "Monitoring Progress", "Downloading . . .", 0, nBlocks - 1);
              
               for (int b = 0; b < nBlocks; b++) {
                 for (int j = 0; j < rowSubset.length; j++) {
@@ -261,8 +288,7 @@ public class ImportExportPlugIn implements PlugIn {
 
                 Column[] dcols = data.columns;
                 
-                // Col 0 == id OMERO col 4
-                idCol = (LongColumn) dcols[3];
+               
                 // Col 1== frame  OMERO col 0
                 frameCol = (LongColumn) dcols[0];
                  // Col 2 == x OMERO col 1
@@ -278,29 +304,53 @@ public class ImportExportPlugIn implements PlugIn {
                 offsetCol = (DoubleColumn) dcols[8];
                 
                 
-                double[] rowVals = new double[4];
+                double[] rowVals = new double[8];
                 
                
                 for (int r = 0; r < nRows; r++) {
-                   rowVals[0] = idCol.values[r];
-                   rowVals[1] = frameCol.values[r];
-                   rowVals[2] = xCol.values[r];
-                   rowVals[3] = yCol.values[r];
+                  
+                   rowVals[0] = frameCol.values[r];
+                   rowVals[1] = xCol.values[r];
+                   rowVals[2] = yCol.values[r];
+                   rowVals[3] = sigmaCol.values[r];
                    rowVals[4] = intCol.values[r];
-                   rowVals[5] = precCol.values[r];
+                   rowVals[5] = offsetCol.values[r];
                    rowVals[6] = bkgstdCol.values[r];
-                   rowVals[7] = sigmaCol.values[r];
-                   rowVals[8] = offsetCol.values[r];
+                   rowVals[7] = precCol.values[r];
                    
                    table.addRow(rowVals);          
-                }
+                } 
+                
+                 
+                pbar.setProgress(b);
 
               }  // end nBlocks
               
+              
               OMEROtable.close();
+             
+            
+             table.insertIdColumn();
+             table.copyOriginalToActual();
+             table.setActualState();
+             
+             table.convertAllColumnsToAnalogUnits();
+             
+             IJResultsTable ijrt = (IJResultsTable) table;
+             
+             ijrt.setAnalyzedImage(null);
+
+             AnalysisPlugIn.setDefaultColumnsWidth(ijrt);
+             
+             ijrt.setLivePreview(true);
+             ijrt.showPreview();
+             
+             table.forceShow();
 
              
            }  // end if (selectedFile !=null)
+           
+          
          
           
         } catch (ServerError ex) {
