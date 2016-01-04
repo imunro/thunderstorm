@@ -14,6 +14,8 @@ import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.MoleculeDescriptor.Units;
 import cz.cuni.lf1.lge.ThunderSTORM.util.javaml.kdtree.KDTree;
 import cz.cuni.lf1.lge.ThunderSTORM.util.javaml.kdtree.KeyDuplicateException;
 import cz.cuni.lf1.lge.ThunderSTORM.util.javaml.kdtree.KeySizeException;
+
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Vector;
@@ -45,7 +47,7 @@ public class MoleculeMatcher {
         //
         // Clean the data
         for (Molecule d : det) {
-            if (d.neighbors != null) d.neighbors.clear();
+            d.clearNeighbors();
             d.setStatus(Molecule.DetectionStatus.UNSPECIFIED);
             d.setParam(LABEL_GROUND_TRUTH_ID, Units.UNITLESS, 0);
             d.setParam(LABEL_DISTANCE_TO_GROUND_TRUTH_XY, distUnits, Double.POSITIVE_INFINITY);
@@ -53,7 +55,7 @@ public class MoleculeMatcher {
             d.setParam(LABEL_DISTANCE_TO_GROUND_TRUTH_XYZ, distUnits, Double.POSITIVE_INFINITY);
         }
         for (Molecule g : gt) {
-            if (g.neighbors != null) g.neighbors.clear();
+            g.clearNeighbors();
             g.setStatus(Molecule.DetectionStatus.UNSPECIFIED);
         }
         //
@@ -79,7 +81,12 @@ public class MoleculeMatcher {
         }
         //
         // Perform the matching in the neighbourhood (given by dist2Thr) of each molecule
-        Map<Molecule, Molecule> pairs = StableMatching.match(det);  // `det` must store the neighbors (`gt`)!
+        // - note1: `det` must store the neighbors (`gt`)!
+        // - note2: returns <det,gt> KV pairs, thus needs to be swapped for further processing
+        Map<Molecule, Molecule> pairs = new HashMap<Molecule, Molecule>();
+        for (Map.Entry<Molecule, Molecule> entry : StableMatching.match(det).entrySet()) {
+            pairs.put(entry.getValue(), entry.getKey());
+        }
         //
         // Set the results (TP, FP, FN)
         for (Molecule gtMol : gt) {

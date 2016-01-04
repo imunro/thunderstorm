@@ -7,7 +7,8 @@ import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.Molecule;
 import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.PSFModel;
 import cz.cuni.lf1.lge.ThunderSTORM.util.Point;
 import ij.process.FloatProcessor;
-import java.util.Vector;
+
+import java.util.List;
 
 /**
  * The interface every estimator has to implement.
@@ -32,5 +33,5 @@ public interface IEstimator extends IModule {
      * @see Point
      * @see IDetector
      */
-    public Vector<Molecule> estimateParameters(FloatProcessor image, Vector<Point> detections) throws StoppedByUserException;
+    List<Molecule> estimateParameters(FloatProcessor image, List<Point> detections) throws StoppedByUserException;
 }

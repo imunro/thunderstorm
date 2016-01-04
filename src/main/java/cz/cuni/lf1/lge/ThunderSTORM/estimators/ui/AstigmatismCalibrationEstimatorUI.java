@@ -9,23 +9,23 @@ import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.PSFModel.Params;
 
 import javax.swing.*;
 
-public class CalibrationEstimatorUI extends SymmetricGaussianEstimatorUI {
+public class AstigmatismCalibrationEstimatorUI extends SymmetricGaussianEstimatorUI implements ICalibrationEstimatorUI {
 
     private final String name = "Elliptic Gaussian w/ angle";
     private double angle;
     private boolean angleWasSet = false;
     private DefocusFunction defocus = null;
 
-    public CalibrationEstimatorUI() {
+    public AstigmatismCalibrationEstimatorUI() {
         super();
         crowdedField = new CrowdedFieldEstimatorUI() {
             @Override
-            OneLocationFitter getLSQImplementation(PSFModel psf, double sigma) {
+            MFA_LSQFitter getLSQImplementation(PSFModel psf, double sigma) {
                 return null;
             }
 
             @Override
-            OneLocationFitter getMLEImplementation(PSFModel psf, double sigma) {
+            MFA_MLEFitter getMLEImplementation(PSFModel psf, double sigma) {
                 return null;
             }
 

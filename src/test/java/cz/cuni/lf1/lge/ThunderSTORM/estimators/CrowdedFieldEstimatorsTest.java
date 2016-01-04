@@ -91,7 +91,7 @@ public class CrowdedFieldEstimatorsTest {
         testEstimator(new MFA_MLEFitter(new EllipticGaussianPSF(SIGMA, ANGLE), SIGMA, MAX_N, P_VAL, true, null));
     }
     
-    public void testEstimator(OneLocationFitter fitter) {
+    public void testEstimator(IOneLocationFitter fitter) {
         Molecule fit;
         double [][] tol = new double[][] {
             { 0.001, 0.1, 0.1 },
@@ -120,7 +120,7 @@ public class CrowdedFieldEstimatorsTest {
         }
     }
 
-    private Molecule fitTestData(OneLocationFitter fitter, int dataset) throws FormulaParserException {
+    private Molecule fitTestData(IOneLocationFitter fitter, int dataset) throws FormulaParserException {
         double [][] values = new double[][] { {
             0.0000, 0.0000, 0.0000, 0.0000, 0.0000, 0.0001, 0.0001, 0.0001, 0.0000, 0.0000, 0.0000, 0.0000, 0.0000,
             0.0000, 0.0000, 0.0000, 0.0001, 0.0002, 0.0004, 0.0005, 0.0004, 0.0002, 0.0001, 0.0000, 0.0000, 0.0000,
@@ -164,9 +164,9 @@ public class CrowdedFieldEstimatorsTest {
             0.0000, 0.0000, 0.0001, 0.0002, 0.0007, 0.0014, 0.0019, 0.0018, 0.0012, 0.0005, 0.0002, 0.0000, 0.0000,
             0.0000, 0.0000, 0.0000, 0.0000, 0.0001, 0.0002, 0.0003, 0.0003, 0.0002, 0.0001, 0.0000, 0.0000, 0.0000
         } };
-        
-        int[] xgrid = new int[(int)sqr(2*FITRADIUS+1)];
-        int[] ygrid = new int[(int)sqr(2*FITRADIUS+1)];
+
+        double[] xgrid = new double[(int)sqr(2*FITRADIUS+1)];
+        double[] ygrid = new double[(int)sqr(2*FITRADIUS+1)];
         int idx = 0;
         for (int i = -FITRADIUS; i <= FITRADIUS; i++) {
             for (int j = -FITRADIUS; j <= FITRADIUS; j++) {
@@ -177,7 +177,7 @@ public class CrowdedFieldEstimatorsTest {
         }
 
         return ((MFA_AbstractFitter) fitter).eliminateBadFits(
-            fitter.fit(new OneLocationFitter.SubImage(2 * FITRADIUS + 1, 2 * FITRADIUS + 1,
+            fitter.fit(new SubImage(2 * FITRADIUS + 1, 2 * FITRADIUS + 1,
                 xgrid, ygrid, values[dataset - 1], 0.0, 0.0, MoleculeDescriptor.Units.DIGITAL)),
                 FITRADIUS, FITRADIUS);
     }

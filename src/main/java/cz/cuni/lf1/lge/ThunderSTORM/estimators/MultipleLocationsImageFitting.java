@@ -13,7 +13,8 @@ import ij.process.FloatProcessor;
 import org.apache.commons.math3.exception.ConvergenceException;
 import org.apache.commons.math3.exception.MaxCountExceededException;
 
-import java.util.Vector;
+import java.util.ArrayList;
+import java.util.List;
 
 import static cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.MoleculeDescriptor.Fitting.uncertaintyXY;
 import static cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.MoleculeDescriptor.Fitting.uncertaintyZ;
@@ -21,17 +22,17 @@ import static cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.MoleculeDescriptor.Fit
 public class MultipleLocationsImageFitting implements IEstimator {
 
     FloatProcessor image;
-    Vector<Point> locations;
+    List<Point> locations;
     double[] subimageData;
     int subimageSize;
     int bigSubImageSize;
-    int[] xgrid;
-    int[] ygrid;
-    Vector<Molecule> results;
-    final OneLocationFitter fitter;
+    double[] xgrid;
+    double[] ygrid;
+    List<Molecule> results;
+    final IOneLocationFitter fitter;
     MoleculeDescriptor moleculeDescriptor;
 
-    public MultipleLocationsImageFitting(int fittingRadius, OneLocationFitter fitter) {
+    public MultipleLocationsImageFitting(int fittingRadius, IOneLocationFitter fitter) {
         this.subimageSize = fittingRadius;
         this.fitter = fitter;
         bigSubImageSize = 2 * fittingRadius + 1;
@@ -40,8 +41,8 @@ public class MultipleLocationsImageFitting implements IEstimator {
     }
 
     private void initializeGrid() {
-        xgrid = new int[bigSubImageSize * bigSubImageSize];
-        ygrid = new int[bigSubImageSize * bigSubImageSize];
+        xgrid = new double[bigSubImageSize * bigSubImageSize];
+        ygrid = new double[bigSubImageSize * bigSubImageSize];
 
         int idx = 0;
         for(int i = -subimageSize; i <= subimageSize; i++) {
@@ -78,7 +79,7 @@ public class MultipleLocationsImageFitting implements IEstimator {
                 try {
                     extractSubimageData(xInt, yInt);
                     //new ImagePlus(String.valueOf(i),new FloatProcessor(2*subimageSize+1, 2*subimageSize+1, subimageData)).show();
-                    OneLocationFitter.SubImage subImage = new OneLocationFitter.SubImage(
+                    SubImage subImage = new SubImage(
                             2*subimageSize+1,
                             2*subimageSize+1,
                             xgrid,
@@ -143,10 +144,10 @@ public class MultipleLocationsImageFitting implements IEstimator {
     }
 
     @Override
-    public Vector<Molecule> estimateParameters(ij.process.FloatProcessor image, Vector<Point> detections) throws StoppedByUserException{
+    public List<Molecule> estimateParameters(ij.process.FloatProcessor image, List<Point> detections) throws StoppedByUserException{
         this.image = image;
         this.locations = detections;
-        results = new Vector<Molecule>();
+        results = new ArrayList<Molecule>();
         run();
         return extractMacroMolecules(results);
     }
@@ -158,8 +159,8 @@ public class MultipleLocationsImageFitting implements IEstimator {
         return true;
     }
 
-    private Vector<Molecule> extractMacroMolecules(Vector<Molecule> macroMolecules) {
-        Vector<Molecule> extracted = new Vector<Molecule>();
+    private List<Molecule> extractMacroMolecules(List<Molecule> macroMolecules) {
+        List<Molecule> extracted = new ArrayList<Molecule>();
         for(Molecule mol : macroMolecules) {
             if(mol.isSingleMolecule()) {
                 extracted.add(mol);
@@ -170,7 +171,7 @@ public class MultipleLocationsImageFitting implements IEstimator {
         return extracted;
     }
 
-    public static void appendGoodnessOfFit(Molecule mol, OneLocationFitter fitter, OneLocationFitter.SubImage subimage) {
+    public static void appendGoodnessOfFit(Molecule mol, IOneLocationFitter fitter, SubImage subimage) {
         LSQFitter lsqfit;
         if(fitter instanceof LSQFitter) {
             lsqfit = (LSQFitter)fitter;

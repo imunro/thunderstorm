@@ -2,27 +2,13 @@ package cz.cuni.lf1.lge.ThunderSTORM.calibration;
 
 import static cz.cuni.lf1.lge.ThunderSTORM.util.MathProxy.*;
 
-import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.PSFModel;
-import org.apache.commons.math3.analysis.MultivariateFunction;
-import org.apache.commons.math3.analysis.MultivariateVectorFunction;
 import org.apache.commons.math3.analysis.ParametricUnivariateFunction;
 import org.apache.commons.math3.fitting.CurveFitter;
-import org.apache.commons.math3.fitting.WeightedObservedPoint;
 import org.apache.commons.math3.optim.*;
-import org.apache.commons.math3.optim.nonlinear.scalar.GoalType;
-import org.apache.commons.math3.optim.nonlinear.scalar.MultiStartMultivariateOptimizer;
-import org.apache.commons.math3.optim.nonlinear.scalar.ObjectiveFunction;
-import org.apache.commons.math3.optim.nonlinear.scalar.ObjectiveFunctionGradient;
-import org.apache.commons.math3.optim.nonlinear.scalar.gradient.NonLinearConjugateGradientOptimizer;
-import org.apache.commons.math3.optim.nonlinear.vector.ModelFunction;
-import org.apache.commons.math3.optim.nonlinear.vector.ModelFunctionJacobian;
-import org.apache.commons.math3.optim.nonlinear.vector.Target;
-import org.apache.commons.math3.optim.nonlinear.vector.Weight;
 import org.apache.commons.math3.optim.nonlinear.vector.jacobian.LevenbergMarquardtOptimizer;
-import org.apache.commons.math3.random.RandomVectorGenerator;
 
 // sigma(z) = a*(z-c)^2 + b + d*(z-c)^3
-public class PolynomialCalibration extends CylindricalLensCalibration {
+public class PolynomialCalibration extends DefocusCalibration {
 
     transient DefocusFunction s1Par, s2Par;
 
@@ -32,15 +18,15 @@ public class PolynomialCalibration extends CylindricalLensCalibration {
         s2Par = null;
     }
 
-    public PolynomialCalibration(double angle, double w01, double a1, double b1, double c1, double d1, double w02, double a2, double b2, double c2, double d2) {
-        super(DefocusFunctionPoly.name, angle, w01, a1, b1, c1, d1, w02, a2, b2, c2, d2);
+    public PolynomialCalibration(double angle, Homography.TransformationMatrix biplanetransform, double w01, double a1, double b1, double c1, double d1, double w02, double a2, double b2, double c2, double d2) {
+        super(DefocusFunctionPoly.name, angle, biplanetransform, w01, a1, b1, c1, d1, w02, a2, b2, c2, d2);
         s1Par = null;
         s2Par = null;
     }
 
-    public PolynomialCalibration(double angle, DefocusFunction sigma1Params, DefocusFunction sigma2Params) {
-        super(DefocusFunctionPoly.name, angle, sigma1Params.getW0(), sigma1Params.getA(), sigma1Params.getB(), sigma1Params.getC(), sigma1Params.getD(),
-                                               sigma2Params.getW0(), sigma2Params.getA(), sigma2Params.getB(), sigma2Params.getC(), sigma2Params.getD());
+    public PolynomialCalibration(double angle, Homography.TransformationMatrix biplaneTransformation, DefocusFunction sigma1Params, DefocusFunction sigma2Params) {
+        super(DefocusFunctionPoly.name, angle, biplaneTransformation, sigma1Params.getW0(), sigma1Params.getA(), sigma1Params.getB(), sigma1Params.getC(), sigma1Params.getD(),
+                sigma2Params.getW0(), sigma2Params.getA(), sigma2Params.getB(), sigma2Params.getC(), sigma2Params.getD());
         s1Par = sigma1Params;
         s2Par = sigma2Params;
     }
@@ -109,7 +95,7 @@ public class PolynomialCalibration extends CylindricalLensCalibration {
         double [] parSigma1 = fitter1.fit(1000, sqrtFn, new double[] {2.0, c1, 0.0, 0.0, zRange/2.0});
         double [] parSigma2 = fitter2.fit(1000, sqrtFn, new double[] {2.0, c2, 0.0, 0.0, zRange/2.0});
 
-        return new DaostormCalibration(angle, parSigma1[0], parSigma1[2], parSigma1[3], parSigma1[1], parSigma1[4],
-                                              parSigma2[0], parSigma2[2], parSigma2[3], parSigma2[1], parSigma2[4]);
+        return new DaostormCalibration(angle, homography, parSigma1[0], parSigma1[2], parSigma1[3], parSigma1[1], parSigma1[4],
+                                                    parSigma2[0], parSigma2[2], parSigma2[3], parSigma2[1], parSigma2[4]);
     }
 }

@@ -1,7 +1,8 @@
 package cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF;
 
-import cz.cuni.lf1.lge.ThunderSTORM.estimators.OneLocationFitter;
 import java.util.Arrays;
+
+import cz.cuni.lf1.lge.ThunderSTORM.estimators.SubImage;
 import org.apache.commons.math3.analysis.MultivariateMatrixFunction;
 import static org.apache.commons.math3.util.FastMath.PI;
 import static org.apache.commons.math3.util.FastMath.abs;
@@ -57,7 +58,7 @@ public class IntegratedSymmetricGaussianPSF extends PSFModel {
     }
 
     @Override
-    public MultivariateMatrixFunction getJacobianFunction(final int[] xgrid, final int[] ygrid) {
+    public MultivariateMatrixFunction getJacobianFunction(final double[] xgrid, final double[] ygrid) {
         return new MultivariateMatrixFunction() {
             @Override
             //gradients by mathematica 9
@@ -127,7 +128,7 @@ public class IntegratedSymmetricGaussianPSF extends PSFModel {
      * @return
      */
     @Override
-    public MultivariateVectorFunction getValueFunction(final int[] xgrid, final int[] ygrid) {
+    public MultivariateVectorFunction getValueFunction(final double[] xgrid, final double[] ygrid) {
         return new MultivariateVectorFunction() {
             @Override
             public double[] value(final double[] point) throws IllegalArgumentException {
@@ -178,7 +179,7 @@ public class IntegratedSymmetricGaussianPSF extends PSFModel {
     }
 
     @Override
-    public double[] getInitialParams(OneLocationFitter.SubImage subImage) {
+    public double[] getInitialParams(SubImage subImage) {
         double[] guess = new double[Params.PARAMS_LENGTH];
         Arrays.fill(guess, 0);
         guess[Params.X] = subImage.detectorX;
@@ -255,7 +256,7 @@ public class IntegratedSymmetricGaussianPSF extends PSFModel {
      * </pre>
      *
      */
-    private static boolean isRegular(int[] xgrid, int[] ygrid) {
+    private static boolean isRegular(double[] xgrid, double[] ygrid) {
         int edge = (int) sqrt(xgrid.length);
         if(edge * edge != xgrid.length) {
             return false;
@@ -265,7 +266,7 @@ public class IntegratedSymmetricGaussianPSF extends PSFModel {
         }
 
         for(int i = 0; i < edge; i++) {
-            int prevValue = xgrid[i * edge];
+            double prevValue = xgrid[i * edge];
             for(int j = 0; j < 0; j++) {
                 if(xgrid[i * edge + j] != prevValue) {
                     return false;
@@ -274,7 +275,7 @@ public class IntegratedSymmetricGaussianPSF extends PSFModel {
         }
 
         for(int i = 0; i < edge; i++) {
-            int prevValue = ygrid[i];
+            double prevValue = ygrid[i];
             for(int j = 0; j < 0; j++) {
                 if(ygrid[i + j * edge] != prevValue) {
                     return false;

@@ -1,7 +1,6 @@
 package cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF;
 
 import cz.cuni.lf1.lge.ThunderSTORM.CameraSetupPlugIn;
-import cz.cuni.lf1.lge.ThunderSTORM.calibration.CylindricalLensCalibration;
 import cz.cuni.lf1.lge.ThunderSTORM.calibration.DaostormCalibration;
 import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.PSFModel.Params;
 
@@ -246,8 +245,11 @@ public class MoleculeDescriptor implements Cloneable {
             }
         }
         // Molecule can't have less values then it has parameters!
-        for(int i = max_i + 1 - mol.values.size(); i > 0; i--) {
-            mol.values.add(0.0);    // fill with zeros
+        if (max_i+1 > mol.values.length) {
+            double[] tmp = mol.values;
+            mol.values = new double[max_i+1];
+            System.arraycopy(tmp, 0, mol.values, 0, tmp.length);
+            Arrays.fill(mol.values, tmp.length, mol.values.length, 0.0);
         }
     }
 
@@ -263,7 +265,7 @@ public class MoleculeDescriptor implements Cloneable {
                 clonedNames[i] = null;
             }
             if(indices.elementAt(i) != null) {
-                clonedIndices[i] = indices.elementAt(i).intValue();
+                clonedIndices[i] = indices.elementAt(i);
             } else {
                 clonedIndices[i] = 0;
             }
@@ -637,7 +639,7 @@ public class MoleculeDescriptor implements Cloneable {
                 groupMap.put(Units.RADIAN, 3);
                 groupMap.put(Units.UNITLESS, 4);
             }
-            return groups[groupMap.get(selected).intValue()];
+            return groups[groupMap.get(selected)];
         }
 
         public static Units getDefaultUnit(String paramName) {
@@ -649,8 +651,12 @@ public class MoleculeDescriptor implements Cloneable {
                 allUnits.put(LABEL_SIGMA, Units.PIXEL);
                 allUnits.put(LABEL_SIGMA1, Units.PIXEL);
                 allUnits.put(LABEL_SIGMA2, Units.PIXEL);
+                allUnits.put(LABEL_SIGMA3, Units.PIXEL);
+                allUnits.put(LABEL_SIGMA4, Units.PIXEL);
                 allUnits.put(LABEL_INTENSITY, Units.DIGITAL);
                 allUnits.put(PSFModel.Params.LABEL_OFFSET, Units.DIGITAL);
+                allUnits.put(PSFModel.Params.LABEL_OFFSET1, Units.DIGITAL);
+                allUnits.put(PSFModel.Params.LABEL_OFFSET2, Units.DIGITAL);
                 allUnits.put(LABEL_BACKGROUND, Units.DIGITAL);
                 allUnits.put(PSFModel.Params.LABEL_ANGLE, Units.RADIAN);
                 //
@@ -720,8 +726,12 @@ public class MoleculeDescriptor implements Cloneable {
             allParams.put(LABEL_SIGMA, MergingOperations.MEAN);
             allParams.put(LABEL_SIGMA1, MergingOperations.MEAN);
             allParams.put(LABEL_SIGMA2, MergingOperations.MEAN);
+            allParams.put(LABEL_SIGMA3, MergingOperations.MEAN);
+            allParams.put(LABEL_SIGMA4, MergingOperations.MEAN);
             allParams.put(LABEL_INTENSITY, MergingOperations.SUM);
             allParams.put(PSFModel.Params.LABEL_OFFSET, MergingOperations.MEAN);
+            allParams.put(PSFModel.Params.LABEL_OFFSET1, MergingOperations.MEAN);
+            allParams.put(PSFModel.Params.LABEL_OFFSET2, MergingOperations.MEAN);
             allParams.put(LABEL_BACKGROUND, MergingOperations.SUM);
             allParams.put(PSFModel.Params.LABEL_ANGLE, MergingOperations.MEAN);
             //

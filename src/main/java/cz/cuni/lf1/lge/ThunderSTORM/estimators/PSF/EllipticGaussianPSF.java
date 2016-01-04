@@ -1,7 +1,7 @@
 package cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF;
 
-import cz.cuni.lf1.lge.ThunderSTORM.calibration.CylindricalLensCalibration;
-import cz.cuni.lf1.lge.ThunderSTORM.estimators.OneLocationFitter;
+import cz.cuni.lf1.lge.ThunderSTORM.calibration.DefocusCalibration;
+import cz.cuni.lf1.lge.ThunderSTORM.estimators.SubImage;
 import org.apache.commons.math3.analysis.MultivariateMatrixFunction;
 import static cz.cuni.lf1.lge.ThunderSTORM.util.MathProxy.*;
 import static java.lang.Math.abs;
@@ -12,7 +12,7 @@ import java.util.Arrays;
  */
 public class EllipticGaussianPSF extends PSFModel {
 
-    CylindricalLensCalibration calibration = null;
+    DefocusCalibration calibration = null;
     double defaultSigma = 1.6;
     double fi, sinfi, cosfi;
 
@@ -23,7 +23,7 @@ public class EllipticGaussianPSF extends PSFModel {
         this.cosfi = Math.cos(fi);
     }
 
-    public EllipticGaussianPSF(CylindricalLensCalibration calibration) {
+    public EllipticGaussianPSF(DefocusCalibration calibration) {
         this.calibration = calibration;
         this.fi = calibration.getAngle();
         this.sinfi = Math.sin(fi);
@@ -74,7 +74,7 @@ public class EllipticGaussianPSF extends PSFModel {
     }
 
     @Override
-    public MultivariateMatrixFunction getJacobianFunction(final int[] xgrid, final int[] ygrid) {
+    public MultivariateMatrixFunction getJacobianFunction(final double[] xgrid, final double[] ygrid) {
         return new MultivariateMatrixFunction() {
             @Override
             public double[][] value(double[] point) throws IllegalArgumentException {
@@ -132,7 +132,7 @@ public class EllipticGaussianPSF extends PSFModel {
     }
 
     @Override
-    public double[] getInitialParams(OneLocationFitter.SubImage subImage) {
+    public double[] getInitialParams(SubImage subImage) {
         double[] guess = new double[Params.PARAMS_LENGTH];
         Arrays.fill(guess, 0);
         guess[Params.X] = subImage.detectorX;

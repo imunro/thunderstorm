@@ -1,6 +1,6 @@
 package cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF;
 
-import cz.cuni.lf1.lge.ThunderSTORM.estimators.OneLocationFitter;
+import cz.cuni.lf1.lge.ThunderSTORM.estimators.SubImage;
 import org.apache.commons.math3.analysis.MultivariateMatrixFunction;
 import static cz.cuni.lf1.lge.ThunderSTORM.util.MathProxy.*;
 import static java.lang.Math.abs;
@@ -56,7 +56,7 @@ public class EllipticGaussianWAnglePSF extends PSFModel {
     }
 
     @Override
-    public MultivariateMatrixFunction getJacobianFunction(final int[] xgrid, final int[] ygrid) {
+    public MultivariateMatrixFunction getJacobianFunction(final double[] xgrid, final double[] ygrid) {
         return new MultivariateMatrixFunction() {
             @Override
             //derivations by wolfram alpha:
@@ -120,7 +120,7 @@ public class EllipticGaussianWAnglePSF extends PSFModel {
     }
 
     @Override
-    public double[] getInitialParams(OneLocationFitter.SubImage subImage) {
+    public double[] getInitialParams(SubImage subImage) {
         double[] guess = new double[Params.PARAMS_LENGTH];
         Arrays.fill(guess, 0);
         guess[Params.X] = subImage.detectorX;

@@ -103,13 +103,13 @@ public class DefocusFunctionPoly extends DefocusFunction {
     }
 
     @Override
-    public CylindricalLensCalibration getCalibration() {
+    public DefocusCalibration getCalibration() {
         return new PolynomialCalibration();
     }
 
     @Override
-    public CylindricalLensCalibration getCalibration(double angle, DefocusFunction polynomS1Final, DefocusFunction polynomS2Final) {
-        return new PolynomialCalibration(angle, polynomS1Final, polynomS2Final);
+    public DefocusCalibration getCalibration(double angle, Homography.TransformationMatrix biplaneTransformation, DefocusFunction polynomS1Final, DefocusFunction polynomS2Final) {
+        return new PolynomialCalibration(angle, biplaneTransformation, polynomS1Final, polynomS2Final);
     }
 
     @Override

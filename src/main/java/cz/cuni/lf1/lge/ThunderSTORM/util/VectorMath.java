@@ -159,6 +159,16 @@ public class VectorMath {
         }
     }
 
+    public static int max(int[] array) {
+        int max = array[0];
+        for(int i = 0; i < array.length; i++) {
+            if(array[i] > max) {
+                max = array[i];
+            }
+        }
+        return max;
+    }
+
     public static double max(double[] array) {
         double max = array[0];
         for(int i = 0; i < array.length; i++) {
@@ -564,6 +574,17 @@ public class VectorMath {
         return res;
     }
 
+    public static double[] sub(double[] arr1, double[] arr2) {
+        if(arr1.length != arr2.length) {
+            throw new FormulaParserException("When subtracting two vectors, both must be of the same size!");
+        }
+        double[] res = new double[arr1.length];
+        for(int i = 0; i < arr1.length; i++) {
+            res[i] = arr1[i] - arr2[i];
+        }
+        return res;
+    }
+
     public static double[] sub(double[] res, double[] arr1, double[] arr2) {
         if(arr1.length != arr2.length) {
             throw new FormulaParserException("When subtracting two vectors, both must be of the same size!");
@@ -589,4 +610,26 @@ public class VectorMath {
         return arr;
     }
 
+    public static double[] movingAverage(double[] values, int lag) {
+        if (lag <= 0 || lag % 2 == 0) {
+            throw new IllegalArgumentException("`lag` must be a positive odd number!");
+        }
+        double[] mavg = new double[values.length];
+        // moving sum
+        mavg[0] = 0.0;
+        for (int i = 0, l = lag / 2; i <= l && i < values.length; i++) {
+            mavg[0] += values[i];
+        }
+        for (int i = 1, l = lag / 2, sub = i - l - 1, add = i + l; i < mavg.length; i++, sub++, add++) {
+            mavg[i] = mavg[i-1];
+            if (sub >= 0) mavg[i] -= values[sub];
+            if (add < values.length) mavg[i] += values[add];
+        }
+        // moving average
+        for (int i = 0, j = mavg.length - 1, l = lag / 2; i < mavg.length; i++, j--) {
+            double count = (double) Math.min(lag - Math.max(Math.max(0, l - i), Math.max(0, l - j)), mavg.length);
+            mavg[i] /= count;
+        }
+        return mavg;
+    }
 }

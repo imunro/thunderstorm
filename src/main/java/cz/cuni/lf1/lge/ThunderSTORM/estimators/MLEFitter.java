@@ -7,12 +7,13 @@ import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.PSFModel.Params;
 import cz.cuni.lf1.lge.ThunderSTORM.estimators.optimizers.NelderMead;
 import cz.cuni.lf1.lge.ThunderSTORM.util.VectorMath;
 
-public class MLEFitter implements OneLocationFitter {
+public class MLEFitter implements IOneLocationFitter, IOneLocationBiplaneFitter {
 
-    PSFModel psfModel;
-    public double[] fittedModelValues;
-    public double[] fittedParameters;
     public final static int MAX_ITERATIONS = 50000;
+
+    public double[] fittedParameters;
+    public PSFModel psfModel;
+
     private int maxIter;
     private int bkgStdColumn;
 
@@ -26,31 +27,38 @@ public class MLEFitter implements OneLocationFitter {
 
     public MLEFitter(PSFModel psfModel, int maxIter, int bkgStdIndex) {
         this.psfModel = psfModel;
-        this.fittedModelValues = null;
-        this.fittedParameters = null;
         this.maxIter = maxIter;
+        this.fittedParameters = null;
     }
 
     @Override
     public Molecule fit(SubImage subimage) {
-        //convert to photons
         subimage.convertTo(MoleculeDescriptor.Units.PHOTON);
+        return fit(new LsqMleSinglePlaneFunctions(psfModel, subimage));
+    }
 
-        if((fittedModelValues == null) || (fittedModelValues.length < subimage.values.length)) {
-            fittedModelValues = new double[subimage.values.length];
-        }
+    @Override
+    public Molecule fit(SubImage plane1, SubImage plane2) {
+        plane1.convertTo(MoleculeDescriptor.Units.PHOTON);
+        plane2.convertTo(MoleculeDescriptor.Units.PHOTON);
+        return fit(new LsqMleBiplaneFunctions(psfModel, plane1, plane2));
+    }
 
+    public Molecule fit(IMleFunctions functions) {
+        // init
+        double[] observations = functions.getObservations();
+
+        // fit
         NelderMead nm = new NelderMead();
-        double[] guess = psfModel.transformParametersInverse(psfModel.getInitialParams(subimage));
-        nm.optimize(psfModel.getLikelihoodFunction(subimage.xgrid, subimage.ygrid, subimage.values),
-                NelderMead.Objective.MAXIMIZE, guess, 1e-8, psfModel.getInitialSimplex(), 10, maxIter);
+        nm.optimize(functions.getLikelihoodFunction(), NelderMead.Objective.MAXIMIZE,
+                psfModel.transformParametersInverse(functions.getInitialParams()),
+                1e-8, psfModel.getInitialSimplex(), 10, maxIter);
         fittedParameters = nm.xmin;
 
         // estimate background and return an instance of the `Molecule`
-        fittedParameters[Params.BACKGROUND] = VectorMath.stddev(VectorMath.sub(fittedModelValues, subimage.values,
-                psfModel.getValueFunction(subimage.xgrid, subimage.ygrid).value(fittedParameters)));
+        fittedParameters[Params.BACKGROUND] = VectorMath.stddev(VectorMath.sub(observations, functions.getValueFunction().value(fittedParameters)));
 
-        Molecule mol = psfModel.newInstanceFromParams(psfModel.transformParameters(fittedParameters), subimage.units, true);
+        Molecule mol = psfModel.newInstanceFromParams(psfModel.transformParameters(fittedParameters), functions.getImageUnits(), true);
 
         if(mol.isSingleMolecule()) {
             convertMoleculeToDigitalUnits(mol);

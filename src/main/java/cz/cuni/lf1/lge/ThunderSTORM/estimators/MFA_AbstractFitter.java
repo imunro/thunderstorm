@@ -3,9 +3,10 @@ package cz.cuni.lf1.lge.ThunderSTORM.estimators;
 import static cz.cuni.lf1.lge.ThunderSTORM.util.MathProxy.abs;
 import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.Molecule;
 import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.PSFModel;
+
 import java.util.Vector;
 
-abstract public class MFA_AbstractFitter implements OneLocationFitter {
+abstract public class MFA_AbstractFitter implements IOneLocationFitter {
 
     double defaultSigma;
     PSFModel basePsfModel;

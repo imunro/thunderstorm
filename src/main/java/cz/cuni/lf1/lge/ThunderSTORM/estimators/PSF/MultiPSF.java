@@ -1,7 +1,7 @@
 package cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF;
 
-import cz.cuni.lf1.lge.ThunderSTORM.estimators.OneLocationFitter;
 import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.MoleculeDescriptor.Units;
+import cz.cuni.lf1.lge.ThunderSTORM.estimators.SubImage;
 import cz.cuni.lf1.lge.ThunderSTORM.util.Range;
 import java.util.Arrays;
 import org.apache.commons.math3.analysis.MultivariateMatrixFunction;
@@ -94,7 +94,7 @@ public class MultiPSF extends PSFModel {
     }
 
     @Override
-    public MultivariateMatrixFunction getJacobianFunction(final int[] xgrid, final int[] ygrid) {
+    public MultivariateMatrixFunction getJacobianFunction(final double[] xgrid, final double[] ygrid) {
         return new MultivariateMatrixFunction() {
             @Override
             public double[][] value(double[] point) throws IllegalArgumentException {
@@ -126,7 +126,7 @@ public class MultiPSF extends PSFModel {
      * @return
      */
     @Override
-    public MultivariateVectorFunction getValueFunction(final int[] xgrid, final int[] ygrid) {
+    public MultivariateVectorFunction getValueFunction(final double[] xgrid, final double[] ygrid) {
         return new MultivariateVectorFunction() {
             @Override
             public double[] value(double[] point) throws IllegalArgumentException {
@@ -159,7 +159,7 @@ public class MultiPSF extends PSFModel {
     }
 
     @Override
-    public double[] getInitialParams(OneLocationFitter.SubImage subImage) {
+    public double[] getInitialParams(SubImage subImage) {
         if(n_1_params == null) {
             assert(nmol == 1);
             return psf.getInitialParams(subImage);
@@ -181,7 +181,7 @@ public class MultiPSF extends PSFModel {
                     max_i = i;
                 }
             }
-            OneLocationFitter.SubImage img = new OneLocationFitter.SubImage(subImage.size_x, subImage.size_y, subImage.xgrid, subImage.ygrid, residual, subImage.xgrid[max_i], subImage.ygrid[max_i]);
+            SubImage img = new SubImage(subImage.size_x, subImage.size_y, subImage.xgrid, subImage.ygrid, residual, subImage.xgrid[max_i], subImage.ygrid[max_i]);
             // get the initial guess for Nth molecule
             System.arraycopy(psf.getInitialParams(img), 0, guess, (nmol-1)*Params.PARAMS_LENGTH, Params.PARAMS_LENGTH);
             // perform push&pull adjustment -- to close to the boundary? push out; else pull in;

@@ -23,8 +23,7 @@ public class MFA_MLEFitter extends MFA_AbstractFitter {
     }
 
     @Override
-    public Molecule fit(OneLocationFitter.SubImage subimage) {
-        Molecule mol;
+    public Molecule fit(SubImage subimage) {
         double[] fittedParams = null;
         MultiPSF model, modelBest = null;
         double logLik, logLikPrevBest = 0.0, pValue;
@@ -36,7 +35,7 @@ public class MFA_MLEFitter extends MFA_AbstractFitter {
                 model.setIntensityRange(expectedIntensity);
                 model.setFixedIntensities(sameI);
                 MLEFitter fitter = new MLEFitter(model, MODEL_SELECTION_ITERATIONS, Params.BACKGROUND);
-                mol = fitter.fit(subimage);
+                fitter.fit(subimage);
                 fittedParams = fitter.fittedParameters;
                 logLik = model.getLikelihoodFunction(subimage.xgrid, subimage.ygrid, subimage.values).value(fittedParams);
                 if(n > 1) {
@@ -57,7 +56,7 @@ public class MFA_MLEFitter extends MFA_AbstractFitter {
         }
         // fitting with the selected model
         MLEFitter fitter = new MLEFitter(modelBest, MLEFitter.MAX_ITERATIONS - MODEL_SELECTION_ITERATIONS, Params.BACKGROUND);
-        mol = fitter.fit(subimage);
+        Molecule mol = fitter.fit(subimage);
         assert (mol != null);    // this is implication of `assert(maxN >= 1)`
         if(!mol.isSingleMolecule()) {
             // copy background value to all molecules

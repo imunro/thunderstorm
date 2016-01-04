@@ -5,6 +5,7 @@ import static cz.cuni.lf1.lge.ThunderSTORM.util.MathProxy.max;
 import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.Molecule;
 import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.MoleculeDescriptor;
 import cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF.MoleculeDescriptor.Units;
+import cz.cuni.lf1.lge.ThunderSTORM.util.ArrayIndexComparator;
 import cz.cuni.lf1.lge.ThunderSTORM.util.IValue;
 import cz.cuni.lf1.lge.ThunderSTORM.util.Pair;
 import ij.IJ;
@@ -187,11 +188,11 @@ public class GenericTableModel extends AbstractTableModel implements Cloneable {
 
     @Override
     public Double getValueAt(int rowIndex, int columnIndex) {
-        return rows.elementAt(rowIndex).values.get(columns.indices.elementAt(columnIndex));
+        return rows.elementAt(rowIndex).values[columns.indices.elementAt(columnIndex)];
     }
 
     public Double getValueAt(int rowIndex, String columnName) {
-        return rows.elementAt(rowIndex).values.get(columns.getParamIndex(columnName));
+        return rows.elementAt(rowIndex).values[columns.getParamIndex(columnName)];
     }
 
     public void setColumnUnits(String columnName, Units new_units) {
@@ -284,7 +285,7 @@ public class GenericTableModel extends AbstractTableModel implements Cloneable {
     
     public void insertColumn(int columnIndex, String name, Units units, IValue<Double> value) {
         for(Molecule row : rows) {
-            row.insertParamAt(columnIndex, name, units, value.getValue().doubleValue());
+            row.insertParamAt(columnIndex, name, units, value.getValue());
         }
         fireTableStructureChanged();
         fireTableDataChanged();
@@ -400,29 +401,5 @@ public class GenericTableModel extends AbstractTableModel implements Cloneable {
         }
         setColumnUnits(paramName, Units.NANOMETER);
         fireTableDataChanged();
-    }
-    
-    // --------------------------------------- //
-    // From http://stackoverflow.com/a/4859279 //
-    // --------------------------------------- //
-    public class ArrayIndexComparator implements Comparator<Integer> {
-        private final double[] array;
-
-        public ArrayIndexComparator(double[] array) {
-            this.array = array;
-        }
-
-        public Integer[] createIndexArray()
-        {
-            Integer[] indexes = new Integer[array.length];
-            for (int i = 0; i < array.length; i++)
-                indexes[i] = i;
-            return indexes;
-        }
-
-        @Override
-        public int compare(Integer index1, Integer index2) {
-            return (int)Math.ceil(array[index1] - array[index2]);
-        }
     }
 }

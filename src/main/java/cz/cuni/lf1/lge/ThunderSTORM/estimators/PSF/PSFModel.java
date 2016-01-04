@@ -3,7 +3,8 @@ package cz.cuni.lf1.lge.ThunderSTORM.estimators.PSF;
 import cz.cuni.lf1.lge.ThunderSTORM.IModule;
 import static cz.cuni.lf1.lge.ThunderSTORM.util.MathProxy.log;
 import static cz.cuni.lf1.lge.ThunderSTORM.util.MathProxy.sqr;
-import cz.cuni.lf1.lge.ThunderSTORM.estimators.OneLocationFitter;
+
+import cz.cuni.lf1.lge.ThunderSTORM.estimators.SubImage;
 import cz.cuni.lf1.lge.ThunderSTORM.util.VectorMath;
 import org.apache.commons.math3.analysis.MultivariateFunction;
 import org.apache.commons.math3.analysis.MultivariateMatrixFunction;
@@ -40,12 +41,16 @@ public abstract class PSFModel implements IModule {
         public static final int SIGMA = 3;
         public static final int INTENSITY = 4;
         public static final int OFFSET = 5;
-        public static final int BACKGROUND = 6;
-        public static final int ANGLE = 7;
-        public static final int SIGMA1 = 8;
-        public static final int SIGMA2 = 9;
-        public static final int Z_REL = 10;
-        public static final int PARAMS_LENGTH = 11;  // <stop>
+        public static final int OFFSET1 = 6;
+        public static final int OFFSET2 = 7;
+        public static final int BACKGROUND = 8;
+        public static final int ANGLE = 9;
+        public static final int SIGMA1 = 10;
+        public static final int SIGMA2 = 11;
+        public static final int SIGMA3 = 12;
+        public static final int SIGMA4 = 13;
+        public static final int Z_REL = 14;
+        public static final int PARAMS_LENGTH = 15;  // <stop>
         private static String[] all_names = null;
         public static final String LABEL_X = "x";
         public static final String LABEL_Y = "y";
@@ -54,9 +59,13 @@ public abstract class PSFModel implements IModule {
         public static final String LABEL_SIGMA = "sigma";
         public static final String LABEL_INTENSITY = "intensity";
         public static final String LABEL_OFFSET = "offset";
+        public static final String LABEL_OFFSET1 = "offset1";
+        public static final String LABEL_OFFSET2 = "offset2";
         public static final String LABEL_BACKGROUND = "bkgstd";
         public static final String LABEL_SIGMA1 = "sigma1";
         public static final String LABEL_SIGMA2 = "sigma2";
+        public static final String LABEL_SIGMA3 = "sigma3";
+        public static final String LABEL_SIGMA4 = "sigma4";
         public static final String LABEL_ANGLE = "angle";
         
         public static String getParamLabel(int index) {
@@ -74,9 +83,13 @@ public abstract class PSFModel implements IModule {
             Params.all_names[SIGMA] = LABEL_SIGMA;
             Params.all_names[INTENSITY] = LABEL_INTENSITY;
             Params.all_names[OFFSET] = LABEL_OFFSET;
+            Params.all_names[OFFSET1] = LABEL_OFFSET1;
+            Params.all_names[OFFSET2] = LABEL_OFFSET2;
             Params.all_names[BACKGROUND] = LABEL_BACKGROUND;
             Params.all_names[SIGMA1] = LABEL_SIGMA1;
             Params.all_names[SIGMA2] = LABEL_SIGMA2;
+            Params.all_names[SIGMA3] = LABEL_SIGMA3;
+            Params.all_names[SIGMA4] = LABEL_SIGMA4;
             Params.all_names[ANGLE] = LABEL_ANGLE;
         }
         // these arrays can be used for "communicating" with the PSF classes
@@ -165,14 +178,14 @@ public abstract class PSFModel implements IModule {
             if(!hasParam(name)) {
                 throw new IllegalArgumentException("Parameter `" + name + "` does not exist!");
             }
-            values[params_str.get(name).intValue()] = value;
+            values[params_str.get(name)] = value;
         }
 
         public double getParam(String name) {
             if(!hasParam(name)) {
                 throw new IllegalArgumentException("Parameter `" + name + "` does not exist!");
             }
-            return values[params_str.get(name).intValue()];
+            return values[params_str.get(name)];
         }
 
         public int getParamsCount() {
@@ -191,7 +204,7 @@ public abstract class PSFModel implements IModule {
     abstract public double getValue(double[] params, double x, double y);
     abstract public double getDoF();    // degrees of freedom
 
-    public MultivariateVectorFunction getValueFunction(final int[] xgrid, final int[] ygrid) {
+    public MultivariateVectorFunction getValueFunction(final double[] xgrid, final double[] ygrid) {
         return new MultivariateVectorFunction() {
             @Override
             public double[] value(double[] params) throws IllegalArgumentException {
@@ -205,7 +218,7 @@ public abstract class PSFModel implements IModule {
         };
     }
 
-    public MultivariateMatrixFunction getNumericJacobianFunction(final int[] xgrid, final int[] ygrid) {
+    public MultivariateMatrixFunction getNumericJacobianFunction(final double[] xgrid, final double[] ygrid) {
         final MultivariateVectorFunction valueFunction = getValueFunction(xgrid, ygrid);
         return new MultivariateMatrixFunction() {
             static final double step = 0.01;
@@ -232,11 +245,11 @@ public abstract class PSFModel implements IModule {
      * Default implementation with numeric gradients. You can override it with
      * analytical jacobian.
      */
-    public MultivariateMatrixFunction getJacobianFunction(final int[] xgrid, final int[] ygrid) {
+    public MultivariateMatrixFunction getJacobianFunction(final double[] xgrid, final double[] ygrid) {
         return getNumericJacobianFunction(xgrid, ygrid);
     }
 
-    public MultivariateFunction getLikelihoodFunction(final int[] xgrid, final int[] ygrid, final double[] imageValues) {
+    public MultivariateFunction getLikelihoodFunction(final double[] xgrid, final double[] ygrid, final double[] imageValues) {
         final MultivariateVectorFunction valueFunction = this.getValueFunction(xgrid, ygrid);
         return new MultivariateFunction() {
             @Override
@@ -259,7 +272,7 @@ public abstract class PSFModel implements IModule {
         };
     }
 
-    public double getChiSquared(final int[] xgrid, final int[] ygrid, final double[] imageValues, double[] point, boolean weighted) {
+    public double getChiSquared(final double[] xgrid, final double[] ygrid, final double[] imageValues, double[] point, boolean weighted) {
         
         double minWeight = 1.0 / VectorMath.max(imageValues);
         double maxWeight = 1000 * minWeight;
@@ -283,7 +296,7 @@ public abstract class PSFModel implements IModule {
      * first step of nelder-mead simplex algorithm. Used in mle estimator.
      */
     public abstract double[] getInitialSimplex();
-    public abstract double[] getInitialParams(OneLocationFitter.SubImage subImage);
+    public abstract double[] getInitialParams(SubImage subImage);
     public abstract Molecule newInstanceFromParams(double[] params, MoleculeDescriptor.Units subImageUnits, boolean afterFitting);
     // --> afterFitting: there might be some normalizations before/after fitting; this method is also used in rendering, where such normalization isn't needed
 }
