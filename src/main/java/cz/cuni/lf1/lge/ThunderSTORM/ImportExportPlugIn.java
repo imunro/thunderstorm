@@ -21,6 +21,7 @@ import cz.cuni.lf1.lge.ThunderSTORM.util.MacroUI.validators.IntegerValidatorFact
 import cz.cuni.lf1.lge.ThunderSTORM.util.MacroUI.validators.StringValidatorFactory;
 import cz.cuni.lf1.lge.ThunderSTORM.util.MacroUI.validators.ValidatorException;
 import ij.IJ;
+import ij.ImageJ;
 import ij.WindowManager;
 import ij.plugin.PlugIn;
 
@@ -31,9 +32,10 @@ import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.KeyAdapter;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -43,10 +45,7 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.Vector;
 import omero.ServerError;
-import omero.api.IMetadataPrx;
 import omero.api.ServiceFactoryPrx;
 import omero.client;
 import omero.grid.Column;
@@ -54,11 +53,7 @@ import omero.grid.Data;
 import omero.grid.DoubleColumn;
 import omero.grid.LongColumn;
 import omero.grid.TablePrx;
-import omero.model.Dataset;
-import omero.model.FileAnnotation;
-import omero.model.IObject;
 import omero.model.OriginalFile;
-import omero.sys.ParametersI;
 
 
 public class ImportExportPlugIn implements PlugIn {
@@ -121,6 +116,9 @@ public class ImportExportPlugIn implements PlugIn {
              if (LOGON.equals(commands[0]))  {
                OMEROLogon();
              }
+             if (LOGOFF.equals(commands[0]))  {
+               OMEROLogoff();
+             }
 
            } else {
             if (EXPORT.equals(commands[0])) {
@@ -135,229 +133,172 @@ public class ImportExportPlugIn implements PlugIn {
     }
 
    
-    private void OMEROImport(GenericTable table) {
-      
-      if (session == null)  {
-        OMEROLogon();  
-      }
-       
-      if (session != null) {
+   private void OMEROImport(GenericTable table) {
 
-      int type = 1; // Dataset
+    if (session == null) {
+      JOptionPane.showMessageDialog(null, "Trying to log on", "Debug", JOptionPane.INFORMATION_MESSAGE);
+      OMEROLogon();
+    }
+
+    if (session != null) {
+
+      int type = 6; // File Attachment
 
       OMEROImageChooser chooser = new OMEROImageChooser(omeroclient, uId, type);
-      Dataset dataset = chooser.getSelectedDataset();
-
-      if (dataset != null) {
+      OriginalFile selectedFile = chooser.getSelectedFile();
+      
+      if (selectedFile != null) {
+        
+        String name = selectedFile.getName().getValue();
+        if (!name.endsWith(".h5"))  {
+          JOptionPane.showMessageDialog (null, "Sorry! Unable to open this file. Not an OMERO.table!", "Error!", JOptionPane.INFORMATION_MESSAGE);
+          return;
+        }
+        
+        TablePrx OMEROtable = null;
         try {
-          Long objId = dataset.getId().getValue();
-          String parentType = "omero.model.Dataset";
-          ArrayList<String> annotationType = new ArrayList<>();
-          annotationType.add("ome.model.annotations.FileAnnotation");
-          ArrayList<Long> Ids = new ArrayList<>();
-          Ids.add(objId);
-          
-          ParametersI param = new ParametersI();
-          param.exp(omero.rtypes.rlong(uId)); //load the annotation for a given user.
-          
-          IMetadataPrx metadataService = session.getMetadataService();
-          List<Long> annotators = null;
-          
-          Map<Long, List<IObject>> map = metadataService.loadAnnotations(parentType, Ids, annotationType, annotators, param);
-          List<IObject> annotations = map.get(objId);
-          if (0 == annotations.size()) {
-            return;
+          OMEROtable = session.sharedResources().openTable(selectedFile);
+        } catch (ServerError ex) {  
+          Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
+          return;
+        }
+        
+        if (OMEROtable == null)  {
+          JOptionPane.showMessageDialog (null, "Sorry! Unable to open this file. Not an OMERO.table!", "Debug!", JOptionPane.INFORMATION_MESSAGE);
+          return;
+        }
+
+
+        table.reset();   // appending not yet implemented
+        table.setOriginalState();
+
+        // set headers in TSTORM table
+        String[] colnames = new String[8];
+
+        colnames[0] = "frame";
+        colnames[1] = "x";
+        colnames[2] = "y";
+        colnames[3] = "sigma";
+        colnames[4] = "intensity";
+        colnames[5] = "offset";
+        colnames[6] = "bkgstd";
+        colnames[7] = "uncertainty";
+        table.setDescriptor(new MoleculeDescriptor(colnames));
+
+        table.setColumnUnits(1, MoleculeDescriptor.Units.NANOMETER);
+        table.setColumnUnits(2, MoleculeDescriptor.Units.NANOMETER);
+        table.setColumnUnits(3, MoleculeDescriptor.Units.NANOMETER);
+        table.setColumnUnits(4, MoleculeDescriptor.Units.PHOTON);
+        table.setColumnUnits(5, MoleculeDescriptor.Units.PHOTON);
+        table.setColumnUnits(6, MoleculeDescriptor.Units.PHOTON);
+        table.setColumnUnits(7, MoleculeDescriptor.Units.NANOMETER);
+
+       
+        long[] columnsToRead = new long[9];
+
+        for (int i = 1; i < 9; i++) {
+          columnsToRead[i] = i;
+        }
+
+        int nBlocks = 40;
+
+        //load 4096 points at a time
+        int nRows = 4096;
+
+        // The number of rows we wish to read.
+        long[] rowSubset = new long[(int) (nRows)];
+
+        Data data;
+
+        // TBD find out how flexible ThunderSTORM is in terms of column order 
+        // and re-write in a more flexible manner
+        LongColumn frameCol;
+        DoubleColumn xCol;
+        DoubleColumn yCol;
+        DoubleColumn intCol;
+        DoubleColumn precCol;
+        DoubleColumn bkgstdCol;
+        DoubleColumn sigmaCol;
+        DoubleColumn offsetCol;
+
+        int row = 0;
+
+        ProgressMonitor pbar = new ProgressMonitor(null, "Monitoring Progress", "Downloading . . .", 0, nBlocks - 1);
+
+        for (int b = 0; b < nBlocks; b++) {
+          for (int j = 0; j < rowSubset.length; j++) {
+            rowSubset[j] = row;
+            row++;
           }
           
-          ArrayList<String> h5List = new ArrayList<>();
-            ArrayList<FileAnnotation> tableList = new ArrayList<>();
-            for (int j = 0; j < annotations.size(); j++) {
-              IObject obj = annotations.get(j);
-              if (obj instanceof FileAnnotation) {
-                String name = ((FileAnnotation) obj).getFile().getName().getValue();
-                if(name.contains(".h5"))  {
-                h5List.add(name);
-                tableList.add((FileAnnotation) obj);
-                
-                }
-              }
-            }
+          data = null;
 
-            if (h5List.size() < 1) {
-              JOptionPane.showMessageDialog (null, "No .h5 Annotations found!", "Title", JOptionPane.INFORMATION_MESSAGE);
-              return;
-            }
+          try {
+            data = OMEROtable.slice(columnsToRead, rowSubset); // read the data.
 
-            String[] nameArray = new String[h5List.size()];
-            h5List.toArray(nameArray);
+          } catch (ServerError ex) {
+            Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
+          }
 
-            String selected = (String) JOptionPane.showInputDialog(null, "Please select ...", "Please select an OMERO table", JOptionPane.QUESTION_MESSAGE, null, nameArray, nameArray[0]);
-            
-            OriginalFile selectedFile = null;
-            
-            for (int s = 0; s < tableList.size(); s++)  {
-              FileAnnotation fa = tableList.get(s);
-              if (fa.getFile().getName().getValue().equals(selected))  {
-                selectedFile = fa.getFile();
-                break;
-              }
-            }
-          
-           
-          
-               
-           if (selectedFile !=null)  {
-             
-              table.reset();   // appending not yet implemented
-             table.setOriginalState();
-            
-             
-             // set headers in TSTORM table
-              
-             String[] colnames = new String[8];
-            
-             colnames[0] = "frame";
-             colnames[1] =  "x";
-             colnames[2] =  "y";
-             colnames[3] = "sigma";
-             colnames[4] = "intensity";
-             colnames[5] =  "offset";
-             colnames[6] =  "bkgstd";
-             colnames[7] =  "uncertainty";
-             table.setDescriptor(new MoleculeDescriptor(colnames));
-             
-             table.setColumnUnits(1, MoleculeDescriptor.Units.NANOMETER);
-             table.setColumnUnits(2, MoleculeDescriptor.Units.NANOMETER);
-             table.setColumnUnits(3, MoleculeDescriptor.Units.NANOMETER);
-             table.setColumnUnits(4, MoleculeDescriptor.Units.PHOTON);
-             table.setColumnUnits(5, MoleculeDescriptor.Units.PHOTON);
-             table.setColumnUnits(6, MoleculeDescriptor.Units.PHOTON);
-             table.setColumnUnits(7, MoleculeDescriptor.Units.NANOMETER);
-             
-             TablePrx OMEROtable;
-             OMEROtable = session.sharedResources().openTable(selectedFile);
-             
-             long[] columnsToRead = new long[9];
-             
+          Column[] dcols = data.columns;
 
-             for (int i = 1; i < 9; i++) {
-               columnsToRead[i] = i;
-             }
-             
-             int nBlocks = 10;
-             
-             //load 4096 points at a time
-             int nRows = 4096;
-             
-             // The number of rows we wish to read.
-             long[] rowSubset = new long[(int) (nRows)];
-             
-             Data data; 
-    
-             // TBD find out how flexible ThunderSTORM is in terms of column order 
-             // and re-write in a more flexible manner
-           
-             LongColumn frameCol;
-             DoubleColumn xCol;
-             DoubleColumn yCol;
-             DoubleColumn intCol;
-             DoubleColumn precCol;
-             DoubleColumn bkgstdCol;
-             DoubleColumn sigmaCol;
-             DoubleColumn offsetCol;
-             
-             
-             
-             int row = 0;
-             
-             ProgressMonitor pbar = new ProgressMonitor(null, "Monitoring Progress", "Downloading . . .", 0, nBlocks - 1);
-             
-              for (int b = 0; b < nBlocks; b++) {
-                for (int j = 0; j < rowSubset.length; j++) {
-                  rowSubset[j] = row;
-                  row++;
-                }
-                
-                try {
-                  data = OMEROtable.slice(columnsToRead, rowSubset); // read the data.
+          // Col 1== frame  OMERO col 0
+          frameCol = (LongColumn) dcols[0];
+          // Col 2 == x OMERO col 1
+          xCol = (DoubleColumn) dcols[1];
+          // Col 3 == y OMERO col 2
+          yCol = (DoubleColumn) dcols[2];
+          // Col 4 == intensity 
+          intCol = (DoubleColumn) dcols[4];
+          // precision, bkgstd, sigma , offset
+          precCol = (DoubleColumn) dcols[5];
+          bkgstdCol = (DoubleColumn) dcols[6];
+          sigmaCol = (DoubleColumn) dcols[7];
+          offsetCol = (DoubleColumn) dcols[8];
 
-                } catch (ServerError ex) {
-                  Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
-                  break;
-                }
+          double[] rowVals = new double[8];
 
-                Column[] dcols = data.columns;
-                
-               
-                // Col 1== frame  OMERO col 0
-                frameCol = (LongColumn) dcols[0];
-                 // Col 2 == x OMERO col 1
-                xCol = (DoubleColumn) dcols[1];
-                // Col 3 == y OMERO col 2
-                yCol = (DoubleColumn) dcols[2];
-                // Col 4 == intensity 
-                intCol = (DoubleColumn) dcols[4];
-                // precision, bkgstd, sigma , offset
-                precCol = (DoubleColumn) dcols[5];
-                bkgstdCol = (DoubleColumn) dcols[6];
-                sigmaCol = (DoubleColumn) dcols[7];
-                offsetCol = (DoubleColumn) dcols[8];
-                
-                
-                double[] rowVals = new double[8];
-                
-               
-                for (int r = 0; r < nRows; r++) {
-                  
-                   rowVals[0] = frameCol.values[r];
-                   rowVals[1] = xCol.values[r];
-                   rowVals[2] = yCol.values[r];
-                   rowVals[3] = sigmaCol.values[r];
-                   rowVals[4] = intCol.values[r];
-                   rowVals[5] = offsetCol.values[r];
-                   rowVals[6] = bkgstdCol.values[r];
-                   rowVals[7] = precCol.values[r];
-                   
-                   table.addRow(rowVals);          
-                } 
-                
-                 
-                pbar.setProgress(b);
+          for (int r = 0; r < nRows; r++) {
 
-              }  // end nBlocks
-              
-              
-              OMEROtable.close();
-             
-            
-             table.insertIdColumn();
-             table.copyOriginalToActual();
-             table.setActualState();
-             
-             table.convertAllColumnsToAnalogUnits();
-             
-             IJResultsTable ijrt = (IJResultsTable) table;
-             
-             ijrt.setAnalyzedImage(null);
+            rowVals[0] = frameCol.values[r];
+            rowVals[1] = xCol.values[r];
+            rowVals[2] = yCol.values[r];
+            rowVals[3] = sigmaCol.values[r];
+            rowVals[4] = intCol.values[r];
+            rowVals[5] = offsetCol.values[r];
+            rowVals[6] = bkgstdCol.values[r];
+            rowVals[7] = precCol.values[r];
 
-             AnalysisPlugIn.setDefaultColumnsWidth(ijrt);
-             
-             ijrt.setLivePreview(true);
-             ijrt.showPreview();
-             
-             table.forceShow();
+            table.addRow(rowVals);
+          }
 
-             
-           }  // end if (selectedFile !=null)
-           
-          
-         
-          
+          pbar.setProgress(b);
+
+        }  // end nBlocks
+        try {
+          OMEROtable.close();
         } catch (ServerError ex) {
           Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
         }
 
-      }
+        table.insertIdColumn();
+        table.copyOriginalToActual();
+        table.setActualState();
+
+        table.convertAllColumnsToAnalogUnits();
+
+        IJResultsTable ijrt = (IJResultsTable) table;
+
+        ijrt.setAnalyzedImage(null);
+
+        AnalysisPlugIn.setDefaultColumnsWidth(ijrt);
+
+        ijrt.setLivePreview(true);
+        ijrt.showPreview();
+
+        table.forceShow();
+
+      }  // end if (selectedFile !=null)
 
     }
 
@@ -369,9 +310,24 @@ public class ImportExportPlugIn implements PlugIn {
       ld.setLocationRelativeTo(null);  // centre of screen
       ld.setModal(true);
       ld.setVisible(true);
+      
+      attachListener();
+      
+      if (session == null)  {
+        JOptionPane.showMessageDialog (null, "sesssion still null!!", "Debug", JOptionPane.INFORMATION_MESSAGE);
+      }
+      
+      
     } 
     
     private void OMEROLogoff()  {
+      JOptionPane.showMessageDialog (null, "Attempting to logoff!!", "Debug", JOptionPane.INFORMATION_MESSAGE);
+      /*short z=1000;
+      try {
+        Thread.sleep(z);
+      } catch (InterruptedException ex) {
+        Logger.getLogger(ImportExportPlugIn.class.getName()).log(Level.SEVERE, null, ex);
+      } */
       if (omeroclient != null)  {
         omeroclient.closeSession();
         omeroclient = null;
@@ -435,20 +391,20 @@ public class ImportExportPlugIn implements PlugIn {
         // - if nothing is mentioned, assume user wants to export everything
         if (MacroParser.isRanFromMacro()) {
             boolean all = true;
-            for (int i = 0; i < dialog.exportColumns.length; i++) {
-                if (dialog.exportColumns[i].getValue()) {
-                    all = false;
-                    break;
-                }
+          for (ParameterKey.Boolean exportColumn : dialog.exportColumns) {
+            if (exportColumn.getValue()) {
+              all = false;
+              break;
             }
+          }
             if (all) {
-                for (int i = 0; i < dialog.exportColumns.length; i++) {
-                    dialog.exportColumns[i].setValue(true);
-                }
+              for (ParameterKey.Boolean exportColumn : dialog.exportColumns) {
+                exportColumn.setValue(true);
+              }
             }
         }
 
-        List<String> columns = new ArrayList<String>();
+        List<String> columns = new ArrayList<>();
         for(int i = 0; i < colNames.length; i++) {
             if(dialog.exportColumns[i].getValue()) {
                 columns.add(colNames[i]);
@@ -948,6 +904,60 @@ public class ImportExportPlugIn implements PlugIn {
     
      //---------------OMERO----------------------
     
+     
+    
+     /** Attaches listeners to the IJ instance.*/
+    private void attachListener()
+    {
+        ImageJ view = IJ.getInstance();
+        view.addWindowListener(new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent e) {
+                OMEROLogoff();
+            }
+        });
+        if (view.getMenuBar() != null && view.getMenuBar().getMenuCount() > 0) {
+            Menu menu = view.getMenuBar().getMenu(0);
+            int count  = menu.getItemCount();
+            if (count > 0) {
+                MenuItem item = menu.getItem(count-1);
+                //Add listener to the quit menu.
+                item.addActionListener(new ActionListener() {
+
+                    /** Make sure we shut down the server.*/
+                    @Override
+                    public void actionPerformed(ActionEvent arg0) {
+                      OMEROLogoff();
+                    }
+                });
+            }
+        }
+        
+        
+
+        /*
+        if (UIUtilities.isMacOS()) {
+            try {
+                MacOSMenuHandler handler = new MacOSMenuHandler(view);
+                handler.initialize();
+                view.addPropertyChangeListener(new PropertyChangeListener() {
+
+                    public void propertyChange(PropertyChangeEvent evt) {
+                        String name = evt.getPropertyName();
+                        if (MacOSMenuHandler.QUIT_APPLICATION_PROPERTY.equals(
+                                name))
+                            onImageJClosing();
+                    }
+                });
+            } catch (Throwable e) {
+                if (IJ.debugMode)
+                    IJ.log("Cannot listen to the Quit action of the menu.");
+            }
+        }
+        */
+    }
+
+    
    /**
     * OMERO Login Dialog
    */
@@ -975,7 +985,7 @@ public class ImportExportPlugIn implements PlugIn {
  
 		this.setTitle("Login");
                 
-                serverField.setText("cell.bioinformatics.ic.ac.uk");
+                serverField.setText("demo.openmicroscopy.org");
                 portField.setText("4064");
                 nameField.setText("imunro");
  
