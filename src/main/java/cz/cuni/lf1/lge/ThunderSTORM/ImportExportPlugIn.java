@@ -64,9 +64,9 @@ public class ImportExportPlugIn implements PlugIn {
     public static final String OMERO = "OMERO";
     public static final String LOGON = "logon";
     public static final String LOGOFF = "logoff";
-    private ServiceFactoryPrx session = null;
-    private client omeroclient = null;
-    long uId = -1;
+    private static ServiceFactoryPrx session = null;
+    private static client omeroclient = null;
+    private static long uId = -1;
    
     private List<IImportExport> modules = null;
     private String[] moduleNames = null;
@@ -136,7 +136,6 @@ public class ImportExportPlugIn implements PlugIn {
    private void OMEROImport(GenericTable table) {
 
     if (session == null) {
-      JOptionPane.showMessageDialog(null, "Trying to log on", "Debug", JOptionPane.INFORMATION_MESSAGE);
       OMEROLogon();
     }
 
@@ -164,7 +163,7 @@ public class ImportExportPlugIn implements PlugIn {
         }
         
         if (OMEROtable == null)  {
-          JOptionPane.showMessageDialog (null, "Sorry! Unable to open this file. Not an OMERO.table!", "Debug!", JOptionPane.INFORMATION_MESSAGE);
+          JOptionPane.showMessageDialog (null, "Sorry! Unable to open this file. Not an OMERO.table!", "Error!", JOptionPane.INFORMATION_MESSAGE);
           return;
         }
 
@@ -299,6 +298,7 @@ public class ImportExportPlugIn implements PlugIn {
         table.forceShow();
 
       }  // end if (selectedFile !=null)
+      
 
     }
 
@@ -313,15 +313,9 @@ public class ImportExportPlugIn implements PlugIn {
       
       attachListener();
       
-      if (session == null)  {
-        JOptionPane.showMessageDialog (null, "sesssion still null!!", "Debug", JOptionPane.INFORMATION_MESSAGE);
-      }
-      
-      
     } 
     
     private void OMEROLogoff()  {
-      JOptionPane.showMessageDialog (null, "Attempting to logoff!!", "Debug", JOptionPane.INFORMATION_MESSAGE);
       /*short z=1000;
       try {
         Thread.sleep(z);
