@@ -121,25 +121,20 @@ public class ImportExportPlugIn implements PlugIn {
             importMeasurementProtocol();
             callImporter(importer, table, path, startingFrame);
             AnalysisPlugIn.setDefaultColumnsWidth(ijrt);
-            //ijrt.setLivePreview(dialog.showPreview.getValue());
-            //ijrt.showPreview();
+            ijrt.setLivePreview(dialog.showPreview.getValue());
+            ijrt.showPreview();
         }
-        //table.forceShow();
+        table.forceShow();
     }
 
     private void runExport(GenericTable table, boolean groundTruth) {
         String[] colNames = (String[]) table.getColumnNames().toArray(new String[0]);
 
-        
-        
-        
         ExportDialog dialog = new ExportDialog(IJ.getInstance(), groundTruth, colNames);
         if(MacroParser.isRanFromMacro()) {
-            JOptionPane.showMessageDialog(null, "from Macro", "Debug", JOptionPane.INFORMATION_MESSAGE);
             dialog.getParams().readMacroOptions();
             dialog.getFileParams().readMacroOptions();
         } else {
-            JOptionPane.showMessageDialog(null, "NO! macro", "Debug", JOptionPane.INFORMATION_MESSAGE);
             if(dialog.showAndGetResult() != JOptionPane.OK_OPTION) {
                 return;
             }

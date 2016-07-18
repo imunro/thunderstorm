@@ -90,7 +90,7 @@ public final class AnalysisPlugIn implements ExtendedPlugInFilter {
             IJ.showStatus("ThunderSTORM is generating the results...");
             //
             // Show results (table and overlay)
-            //showResults();
+            showResults();
             //
             // Finished
             IJ.showProgress(1.0);
@@ -301,7 +301,7 @@ public final class AnalysisPlugIn implements ExtendedPlugInFilter {
         if(processedImage != null) {
             rt.setAnalyzedImage(processedImage);
         }
-        //rt.forceShow();
+        rt.forceShow();
         //
         // Show detections in the image
         if(processedImage != null) {
