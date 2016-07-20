@@ -111,7 +111,7 @@ abstract public class DLMImportExport implements IImportExport {
     }
 
     @Override
-    public void exportToFile(String fp, int floatPrecision, GenericTable table, List<String> columns) throws IOException {
+    public void exportToFile(String fp, int floatPrecision, GenericTable table, List<String> columns, Integer firstFrame) throws IOException {
         assert(table != null);
         assert(fp != null);
         assert(!fp.isEmpty());
@@ -129,15 +129,30 @@ abstract public class DLMImportExport implements IImportExport {
         df.setMaximumFractionDigits(floatPrecision);
 
         int ncols = columns.size(), nrows = table.getRowCount();
-        for(int r = 0; r < nrows; r++) {
-            for(int c = 0; c < ncols; c++) {
-                if(c > 0) writer.write(separator);
-                writer.write(df.format(table.getValue(r, columns.get(c))));
-            }
-            writer.newLine();
-            IJ.showProgress((double)r / (double)nrows);
+        // account for offset firstFrame
+        // N>B> Separate loop to avoid if statements in loop
+        if (firstFrame > 1 && MoleculeDescriptor.LABEL_FRAME.equals(columns.get(0)))  {
+          int frameOffset = firstFrame - 1;
+          for(int r = 0; r < nrows; r++) {
+              writer.write(df.format(table.getValue(r, columns.get(0))+ frameOffset));
+              for(int c = 1; c < ncols; c++) {
+                  writer.write(separator);
+                  writer.write(df.format(table.getValue(r, columns.get(c))));
+              }
+              writer.newLine();
+              IJ.showProgress((double)r / (double)nrows);
+          }
         }
-        
+        else  {
+          for(int r = 0; r < nrows; r++) {
+              for(int c = 0; c < ncols; c++) {
+                  if(c > 0) writer.write(separator);
+                  writer.write(df.format(table.getValue(r, columns.get(c))));
+              }
+              writer.newLine();
+              IJ.showProgress((double)r / (double)nrows);
+          }
+        }
         writer.close();
     }
 
