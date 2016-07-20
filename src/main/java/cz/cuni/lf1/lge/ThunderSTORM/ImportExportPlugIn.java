@@ -175,7 +175,7 @@ public class ImportExportPlugIn implements PlugIn {
 
         //export
         IImportExport exporter = getModuleByName(dialog.getFileFormat());
-        callExporter(exporter, table, path, dialog.getFloatPrecision(), columns);
+        callExporter(exporter, table, path, dialog.getFloatPrecision(), columns, dialog.firstFrame.getValue());
     }
 
     private void importMeasurementProtocol() {
@@ -242,11 +242,11 @@ public class ImportExportPlugIn implements PlugIn {
         }
     }
 
-    private void callExporter(IImportExport exporter, GenericTable table, String fpath, int floatPrecision, List<String> columns) {
+    private void callExporter(IImportExport exporter, GenericTable table, String fpath, int floatPrecision, List<String> columns, Integer firstFrame) {
         IJ.showStatus("ThunderSTORM is exporting your results...");
         IJ.showProgress(0.0);
         try {
-            exporter.exportToFile(fpath, floatPrecision, table, columns);
+            exporter.exportToFile(fpath, floatPrecision, table, columns, firstFrame);
             IJ.showStatus("ThunderSTORM has exported your results.");
         } catch(IOException ex) {
             IJ.showStatus("");
@@ -459,6 +459,7 @@ public class ImportExportPlugIn implements PlugIn {
         ParameterKey.Integer floatPrecision;
         ParameterKey.Boolean[] exportColumns;
         ParameterKey.Boolean saveProtocol;
+        ParameterKey.Integer firstFrame;
 
         private boolean groundTruth;
         private String[] columnHeaders;
@@ -477,6 +478,7 @@ public class ImportExportPlugIn implements PlugIn {
             }
             if(!groundTruth) {
                 saveProtocol = params.createBooleanField("saveProtocol", null, true);
+                firstFrame = params.createIntField("firstFrame", IntegerValidatorFactory.positive(), 1);
             }
         }
 
@@ -539,7 +541,23 @@ public class ImportExportPlugIn implements PlugIn {
                 columnsPanel.add(colCheckBox, GridBagHelper.rightCol());
             }
             pane.add(columnsPanel, componentConstraints);
-
+            
+            
+            if(!groundTruth && MacroParser.isRanFromMacro()) {
+                
+                JPanel firstFramePanel = new JPanel(new GridBagLayout());
+                firstFramePanel.setBorder(new TitledBorder("First Frame"));
+                firstFramePanel.add(Box.createHorizontalStrut(filePathTextField.getPreferredSize().width / 2), GridBagHelper.leftCol());
+                firstFramePanel.add(Box.createHorizontalStrut(filePathTextField.getPreferredSize().width), GridBagHelper.rightCol());          
+                JTextField firstFrameTextField = new JTextField(1);
+                firstFramePanel.add(firstFrameTextField, GridBagHelper.rightCol());
+                firstFrame.registerComponent(firstFrameTextField);
+                firstFramePanel.add(new JLabel("First frame offset:"), GridBagHelper.leftCol());
+                firstFramePanel.add(firstFrameTextField, GridBagHelper.rightCol());
+                pane.add(firstFramePanel, componentConstraints); 
+            }
+            
+            
             pane.add(Box.createVerticalStrut(10), componentConstraints);
             pane.add(createButtonsPanel(), componentConstraints);
             pane.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
