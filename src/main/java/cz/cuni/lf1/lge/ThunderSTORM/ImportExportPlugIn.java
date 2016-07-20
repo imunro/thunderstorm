@@ -546,13 +546,13 @@ public class ImportExportPlugIn implements PlugIn {
             if(!groundTruth && MacroParser.isRanFromMacro()) {
                 
                 JPanel firstFramePanel = new JPanel(new GridBagLayout());
-                firstFramePanel.setBorder(new TitledBorder("First Frame"));
+                firstFramePanel.setBorder(new TitledBorder("First Frame - .CSV only"));
                 firstFramePanel.add(Box.createHorizontalStrut(filePathTextField.getPreferredSize().width / 2), GridBagHelper.leftCol());
                 firstFramePanel.add(Box.createHorizontalStrut(filePathTextField.getPreferredSize().width), GridBagHelper.rightCol());          
                 JTextField firstFrameTextField = new JTextField(1);
                 firstFramePanel.add(firstFrameTextField, GridBagHelper.rightCol());
                 firstFrame.registerComponent(firstFrameTextField);
-                firstFramePanel.add(new JLabel("First frame offset:"), GridBagHelper.leftCol());
+                firstFramePanel.add(new JLabel("Starting Frame Number:"), GridBagHelper.leftCol());
                 firstFramePanel.add(firstFrameTextField, GridBagHelper.rightCol());
                 pane.add(firstFramePanel, componentConstraints); 
             }
