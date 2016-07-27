@@ -132,7 +132,7 @@ abstract public class DLMImportExport implements IImportExport {
         // account for offset firstFrame
         // N>B> Separate loop to avoid if statements in loop
         if (firstFrame > 1 && MoleculeDescriptor.LABEL_FRAME.equals(columns.get(0)))  {
-          int frameOffset = firstFrame - 1;
+          Double frameOffset = new Double(firstFrame - 1);
           for(int r = 0; r < nrows; r++) {
               writer.write(df.format(table.getValue(r, columns.get(0))+ frameOffset));
               for(int c = 1; c < ncols; c++) {
