@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Scanner;
 import java.util.Vector;
+import javax.swing.JOptionPane;
 
 abstract public class DLMImportExport implements IImportExport {
     
@@ -125,35 +126,38 @@ abstract public class DLMImportExport implements IImportExport {
 
         DecimalFormat df = new DecimalFormat();
         df.setDecimalFormatSymbols(DecimalFormatSymbols.getInstance(Locale.US));
+        df.setGroupingUsed(false);
         df.setRoundingMode(RoundingMode.HALF_EVEN);
         df.setMaximumFractionDigits(floatPrecision);
+        
 
         int ncols = columns.size(), nrows = table.getRowCount();
         // account for offset firstFrame
         // N>B> Separate loop to avoid if statements in loop
-        if (firstFrame > 1 && MoleculeDescriptor.LABEL_FRAME.equals(columns.get(0)))  {
+        if (firstFrame > 1 && MoleculeDescriptor.LABEL_FRAME.equals(columns.get(0))) {
+          Double framed;
           Double frameOffset = new Double(firstFrame - 1);
-          for(int r = 0; r < nrows; r++) {
-              writer.write(df.format(table.getValue(r, columns.get(0))+ frameOffset));
-              for(int c = 1; c < ncols; c++) {
-                  writer.write(separator);
-                  writer.write(df.format(table.getValue(r, columns.get(c))));
-              }
-              writer.newLine();
-              IJ.showProgress((double)r / (double)nrows);
+          for (int r = 0; r < nrows; r++) {
+            framed = table.getValue(r, columns.get(0)) + frameOffset;
+            writer.write(df.format(framed));
+            for (int c = 1; c < ncols; c++) {
+              writer.write(separator);
+              writer.write(df.format(table.getValue(r, columns.get(c))));
+            }
+            writer.newLine();
+            IJ.showProgress((double) r / (double) nrows);
+          }
+        } else {   
+          for (int r = 0; r < nrows; r++) {
+            for (int c = 0; c < ncols; c++) {
+              if (c > 0) writer.write(separator);
+              writer.write(df.format(table.getValue(r, columns.get(c))));
+            }
+            writer.newLine();
+            IJ.showProgress((double) r / (double) nrows);
           }
         }
-        else  {
-          for(int r = 0; r < nrows; r++) {
-              for(int c = 0; c < ncols; c++) {
-                  if(c > 0) writer.write(separator);
-                  writer.write(df.format(table.getValue(r, columns.get(c))));
-              }
-              writer.newLine();
-              IJ.showProgress((double)r / (double)nrows);
-          }
-        }
-        writer.close();
-    }
+      writer.close();
+  }
 
 }
