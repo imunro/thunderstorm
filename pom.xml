@@ -29,9 +29,9 @@
                     <snapshots>
                         <enabled>false</enabled>
                     </snapshots>
-                    <id>bintray-joshmoore-maven</id>
+                    <id>bintray-imperial-photonics-omeUiUtils</id>
                     <name>bintray</name>
-                    <url>http://dl.bintray.com/joshmoore/maven</url>
+                    <url>http://dl.bintray.com/imperial-photonics/omeUiUtils</url>
                 </repository>
             </repositories>
             <pluginRepositories>
@@ -39,9 +39,9 @@
                     <snapshots>
                         <enabled>false</enabled>
                     </snapshots>
-                    <id>bintray-joshmoore-maven</id>
+                    <id>bintray-imperial-photonics-omeUiUtils</id>
                     <name>bintray-plugins</name>
-                    <url>http://dl.bintray.com/joshmoore/maven</url>
+                    <url>http://dl.bintray.com/imperial-photonics/omeUiUtils</url>
                 </pluginRepository>
             </pluginRepositories>
             <id>no-html-help</id>
@@ -240,7 +240,7 @@
         <dependency>
             <groupId>ome</groupId>
             <artifactId>OMEuiUtils</artifactId>
-            <version>0.1.1-SNAPSHOT</version>
+            <version>0.1.5</version>
         </dependency>
         <dependency>
             <groupId>net.sf.cssbox</groupId>
